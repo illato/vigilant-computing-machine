@@ -1,5 +1,10 @@
 # add random missing in Simulated data with signal
+#install.packages("missForest")
 library(missForest)
+
+# set seed for reproducibility
+set.seed(42)
+
 sim_Gail_signal_add_NA<-sim_Gail_signal
 colnames(sim_Gail_signal_add_NA)
 addna<-prodNA(sim_Gail_signal_add_NA[ , c(4:8)], noNA = 0.2)
@@ -9,14 +14,19 @@ sim_Gail_signal_add_NA$HypPlas[is.na(sim_Gail_signal_add_NA$HypPlas)] <- 99
 sim_Gail_signal_add_NA$AgeMen[is.na(sim_Gail_signal_add_NA$AgeMen)] <- 99
 sim_Gail_signal_add_NA$Age1st[is.na(sim_Gail_signal_add_NA$Age1st)] <- 99
 sim_Gail_signal_add_NA$N_Rels[is.na(sim_Gail_signal_add_NA$N_Rels)] <- 99
+
+# if N_Biop is 0 or 99 (NA), change value to match HypPlas
 sim_Gail_signal_add_NA$HypPlas<-ifelse(sim_Gail_signal_add_NA$N_Biop==0,99,sim_Gail_signal_add_NA$HypPlas)
 sim_Gail_signal_add_NA$HypPlas<-ifelse(sim_Gail_signal_add_NA$N_Biop==99,99,sim_Gail_signal_add_NA$HypPlas)
+
 str(sim_Gail_signal_add_NA)
 table(sim_Gail_signal_add_NA$HypPlas)
 
 #Multiple imputation
 
+#install.packages("glmnet")
 library(glmnet)
+#install.packages("mi")
 library(mi)
 set.seed(1104)
 sim_Gail_signal_imputed<-sim_Gail_signal_add_NA
