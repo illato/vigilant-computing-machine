@@ -14,7 +14,7 @@
 #
 # Trying v2.1.1 first, per corresponds to the Reference Manual <https://cran.r-project.org/web/packages/BCRA/BCRA.pdf>
 
-install.packages("BCRA")
+#install.packages("BCRA")
 library(BCRA)
 
 # set seed for reproducibility
