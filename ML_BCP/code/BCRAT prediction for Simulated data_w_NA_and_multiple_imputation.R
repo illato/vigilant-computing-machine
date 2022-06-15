@@ -18,7 +18,7 @@
 # library(BCRA)
 # 
 # # set seed for reproducibility
-# set.seed(42)
+set.seed(42)
 
 # #Simulated Gail no signal
 # Abrisk_Random<-risk.summary(sim_Gail_Random)

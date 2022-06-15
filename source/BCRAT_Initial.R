@@ -33,3 +33,20 @@ sim_Gail_signal_add_NA
 # OR aggregate them when we refactor/parameterize data generation
 imputed1
 
+
+# Write Synthetic Data to CSV ---------------------------------------------
+
+# orange3-conformal is in Python
+
+write.csv(sim_Gail_Random, 
+          file = './ML_BCP/data/synthetic/random.csv', 
+          row.names = FALSE)
+write.csv(sim_Gail_signal, 
+          file = './ML_BCP/data/synthetic/signal.csv', 
+          row.names = FALSE)
+write.csv(sim_Gail_signal_add_NA, 
+          file = './ML_BCP/data/synthetic/missing.csv', 
+          row.names = FALSE)
+write.csv(imputed1, 
+          file = './ML_BCP/data/synthetic/imputed.csv', 
+          row.names = FALSE)
