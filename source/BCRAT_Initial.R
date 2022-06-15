@@ -18,3 +18,18 @@ source('./ML_BCP/code/BCRAT prediction for Simulated data_w_NA_and_multiple_impu
 
 
 # Synthetic BCRAT/Gail Model Data Ready for ML Prediction -----------------
+
+sim_Gail_Random
+sim_Gail_signal
+sim_Gail_signal_add_NA
+#sim_Gail_signal_imputed
+#
+# 'sim_Gail_signal_imputed' is actually modified a surprising amount in the
+# 'code/BCRAT prediction for Simulated data_w_NA_and_multiple_imputation.R'
+# that does prediction after the data is generated. The result is 'imputed1'
+#
+# I motion to move this logic from  './ML_BCP/code' 
+# into the appropriate script under './ML_BCP/data/'
+# OR aggregate them when we refactor/parameterize data generation
+imputed1
+

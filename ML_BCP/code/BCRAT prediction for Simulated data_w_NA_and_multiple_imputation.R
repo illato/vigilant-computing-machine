@@ -54,7 +54,7 @@
 # # 0.49166667  0.49348534  0.48976109  0.50332226  0.47993311 -0.06702146 
 # diagnosticErrors(sim_GSig_AUC)
 # # acc       sens       spec        ppv        npv        lor 
-# # 0.4416667  0.4411765  0.4421222  0.4235880  0.4598662 -0.4689425 
+# # 0.4458333  0.4474124  0.4442596  0.4451827  0.4464883 -0.4350237 
 # 
 # #install.packages("cvAUC")
 # library(cvAUC)
@@ -79,10 +79,10 @@ sim_Gail_signal_addNA_prediction<-cbind(sim_Gail_signal_add_NA,Predition_Gail_si
 #Calculate AUC
 sim_GSig_addNA_AUC = confusionMatrix(sim_Gail_signal_addNA_prediction$Case_signalYN, sim_Gail_signal_addNA_prediction$Predition_Gail_signal_add_NA, negative=0)
 # FP  TP  TN  FN
-#381 223 286 310
+#350 250 251 349
 diagnosticErrors(sim_GSig_addNA_AUC)
 #      acc       sens       spec        ppv        npv        lor
-#0.4241667  0.4183865  0.4287856  0.3692053  0.4798658 -0.6162081
+#0.4175000  0.4173623  0.4176373  0.4166667  0.4183333 -0.6660912
 
 AUC(sim_Gail_signal_addNA_prediction$Predition_Gail_signal_add_NA, sim_Gail_signal_addNA_prediction$Case_signalYN, label.ordering = NULL)
 
@@ -112,9 +112,9 @@ sim_Gail_imput1_prediction<-cbind(imputed1,Predition_Gail_imput1)
 #Calculate AUC
 sim_Gail_imput1_prediction_AUC = confusionMatrix(sim_Gail_imput1_prediction$Case_signalYN, sim_Gail_imput1_prediction$Predition_Gail_imput1, negative=0)
 # FP  TP  TN  FN
-# 338 264 284 314
+# 327 273 274 326
 diagnosticErrors(sim_Gail_imput1_prediction_AUC)
 #       acc       sens       spec        ppv        npv        lor
-# 0.4566667  0.4567474  0.4565916  0.4385382  0.4749164 -0.3475155
+# 0.4558333  0.4557596  0.4559068  0.4550000  0.4566667 -0.3542577
 
 AUC(sim_Gail_imput1_prediction$Predition_Gail_imput1, sim_Gail_imput1_prediction$Case_signalYN, label.ordering = NULL)

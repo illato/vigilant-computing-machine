@@ -16,6 +16,12 @@
 
 #install.packages("BCRA")
 library(BCRA)
+#
+# e.g.:
+#
+# data(exampledata)
+# risk.summary(exampledata)
+
 
 # set seed for reproducibility
 set.seed(42)
@@ -48,13 +54,13 @@ sim_GRan_AUC = crossval::confusionMatrix(sim_Gail_Random_prediction$Case_Random,
 # 299 303 287 311
 sim_GSig_AUC = confusionMatrix(sim_Gail_signal_prediction$Case_signalYN, sim_Gail_signal_prediction$Predition_Gail_signal, negative=0)
 # FP  TP  TN  FN 
-# 347 255 275 323
+# 334 268 267 331
 diagnosticErrors(sim_GRan_AUC)
 # acc        sens        spec         ppv         npv         lor 
 # 0.49166667  0.49348534  0.48976109  0.50332226  0.47993311 -0.06702146 
 diagnosticErrors(sim_GSig_AUC)
 # acc       sens       spec        ppv        npv        lor 
-# 0.4416667  0.4411765  0.4421222  0.4235880  0.4598662 -0.4689425 
+# 0.4458333  0.4474124  0.4442596  0.4451827  0.4464883 -0.4350237 
 
 #install.packages("cvAUC")
 library(cvAUC)

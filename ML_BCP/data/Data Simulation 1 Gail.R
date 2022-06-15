@@ -23,6 +23,13 @@ table(T1)
 # 1   2   2   5   7  11  14  22  28  38  46  85  65  85  88  92 104  83  87  77  65  45  37  45  25  17   5   9   2   6   2 
 T2 <- c(rep(90, 1200))
 
+# Why did the original author make the below
+# probability of having had 3 biopsies greater than the 
+# probability of having had 2 biopsies? 
+#
+# What does the author mean "Need change in HypPlas Size"?
+# HypPlas is based on N_Biop, but beyond that it is not yet clear what was meant
+
 # Number of Biopsy 
 N_Biop<- sample(c(0,1,2,3,4,5,6),size=1200, replace=TRUE, prob=c(0.8,0.1,0.02,0.07,0.005,0.004,0.001))#Need change in HypPlas Size
 table(N_Biop)
@@ -33,11 +40,13 @@ count_Biop  #242
 # 958 111  30  87   9   3   2 
 
 # Hyperplasia
-HypPlas <- ifelse(N_Biop!=0,(sample(c(0,1),size=count_Biop,replace=TRUE,prob=c(0.8,0.2))),99) #99=unk or not applicable
+HypPlas <- ifelse(N_Biop!=0,
+                  (sample(c(0,1),size=count_Biop,replace=TRUE,prob=c(0.8,0.2))),
+                  99) #99=unk or not applicable
 table(HypPlas)
 # HypPlas
-# 0   1  99 
-# 191  51 958 
+# 0    1  99 
+# 198 44 958 
 
 #Age of menarche
 AgeMen<- as.integer(rnorm(NumSubj, 13,1))
@@ -80,7 +89,7 @@ table(Race)
 Case_Random<-sample(c(0,1),size=1200, replace=TRUE, prob=c(0.5,0.5))
 Case_signal<-c(0.3*T1+0.2*N_Biop+0.1*N_Rels+0.1*AgeMen+0.3*rnorm(20,3))
 median(Case_signal) # 17.86993
-Case_signalYN<-ifelse(Case_signal>17.91104, 1, 0)
+Case_signalYN<-ifelse(Case_signal>17.86993, 1, 0)
 table(Case_Random)
 # Case_Random
 # 0   1 
@@ -88,7 +97,7 @@ table(Case_Random)
 table(Case_signalYN)
 # Case_signalYN
 # 0   1 
-# 622 578 
+# 601 599 
 
 
 # Data (putting all components together)
