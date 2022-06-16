@@ -9,14 +9,34 @@ sim_Gail_signal_add_NA<-sim_Gail_signal
 colnames(sim_Gail_signal_add_NA)
 addna<-prodNA(sim_Gail_signal_add_NA[ , c(4:8)], noNA = 0.2)
 sim_Gail_signal_add_NA<-cbind(sim_Gail_signal_add_NA[ , c(1:3)],addna,sim_Gail_signal_add_NA[ , c(9:10)])
+#
+# Original author just added 20% missing data and is going to change any
+# NA's introduced in N_Biop to 0? 
+#
+# There is already a 0.8 probability that N_Biop will be generated as 0
+# in the original "Data Simulation 1 Gail.R" script, implying 0 is
+# a valid value, which mean there is already implicit imputation in the 
+# data that is supposed to be only adding 20% NA. 
+#
+# Additionally, N_Biop of 0 or 99 result in a change of HypPlas to the
+# value representing NA/missing (99) below, which doesn't line up with the 
+# example data from the BRCA library and I see no clear explanation of 
+# the logic behind this modification of the data. 
+#
+# The example data has 99 for N_Biop/HypPlas and non-99 for the other.
+# 
+# Run "library(BRCA)" > "data(exampledata)" (then "exampledata", if you are not 
+# in an IDE) to see and let me know if any of you see a way where this makes sense.
+#
 sim_Gail_signal_add_NA$N_Biop[is.na(sim_Gail_signal_add_NA$N_Biop)] <- 0
 sim_Gail_signal_add_NA$HypPlas[is.na(sim_Gail_signal_add_NA$HypPlas)] <- 99
 sim_Gail_signal_add_NA$AgeMen[is.na(sim_Gail_signal_add_NA$AgeMen)] <- 99
 sim_Gail_signal_add_NA$Age1st[is.na(sim_Gail_signal_add_NA$Age1st)] <- 99
 sim_Gail_signal_add_NA$N_Rels[is.na(sim_Gail_signal_add_NA$N_Rels)] <- 99
 
-# if N_Biop is 0 or 99 (NA), change value to match HypPlas
+# if N_Biop is 0, change HypPlas to 99 (NA)
 sim_Gail_signal_add_NA$HypPlas<-ifelse(sim_Gail_signal_add_NA$N_Biop==0,99,sim_Gail_signal_add_NA$HypPlas)
+# if N_Biop is 99 (NA), change HypPlas to 99 (NA)
 sim_Gail_signal_add_NA$HypPlas<-ifelse(sim_Gail_signal_add_NA$N_Biop==99,99,sim_Gail_signal_add_NA$HypPlas)
 
 str(sim_Gail_signal_add_NA)
