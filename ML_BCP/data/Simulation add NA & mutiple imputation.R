@@ -15,15 +15,18 @@ sim_Gail_signal_add_NA<-cbind(sim_Gail_signal_add_NA[ , c(1:3)],addna,sim_Gail_s
 #
 # There is already a 0.8 probability that N_Biop will be generated as 0
 # in the original "Data Simulation 1 Gail.R" script, implying 0 is
-# a valid value, which mean there is already implicit imputation in the 
+# a valid value, which means there is already implicit imputation in the 
 # data that is supposed to be only adding 20% NA. 
+#
+# Simply put, BRCA example data has 99 (NA) among the values for N_Biop, 
+# but none of the data generated here has 99 (NA) for N_Biop.
 #
 # Additionally, N_Biop of 0 or 99 result in a change of HypPlas to the
 # value representing NA/missing (99) below, which doesn't line up with the 
 # example data from the BRCA library and I see no clear explanation of 
 # the logic behind this modification of the data. 
 #
-# The example data has 99 for N_Biop/HypPlas and non-99 for the other.
+# The example data has 99 for N_Biop with non-zero for HypPlas and vice-versa.
 # 
 # Run "library(BRCA)" > "data(exampledata)" (then "exampledata", if you are not 
 # in an IDE) to see and let me know if any of you see a way where this makes sense.
