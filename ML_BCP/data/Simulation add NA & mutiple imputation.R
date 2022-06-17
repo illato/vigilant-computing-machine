@@ -26,7 +26,7 @@ sim_Gail_signal_add_NA<-cbind(sim_Gail_signal_add_NA[ , c(1:3)],addna,sim_Gail_s
 # example data from the BRCA library and I see no clear explanation of 
 # the logic behind this modification of the data. 
 #
-# The example data has 99 for N_Biop with non-zero for HypPlas and vice-versa.
+# The example data has NA for N_Biop with non-zero/NA for HypPlas and vice-versa.
 # 
 # Run "library(BRCA)" > "data(exampledata)" (then "exampledata", if you are not 
 # in an IDE) to see and let me know if any of you see a way where this makes sense.
