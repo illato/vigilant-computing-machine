@@ -1,6 +1,6 @@
 "ID","T1","T2","N_Biop","HypPlas","AgeMen","Age1st","N_Rels","Race","Case_signalYN"
 d,c,c,d,d,c,c,d,d,d
-m,,m,,,,,,,class
+i,,i,,,,,,,class
 561,53,90,1,0,13,25,0,3,1
 321,53,90,0,99,11,22,0,2,0
 1177,53,90,1,0,12,28,0,1,1
