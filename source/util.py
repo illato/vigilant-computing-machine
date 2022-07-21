@@ -1,6 +1,8 @@
 import numpy as np
 import pandas as pd
 from sklearn import svm
+import matplotlib.pyplot as plt
+from sklearn.preprocessing import MinMaxScaler
 
 import Orange
 import orangecontrib.conformal as cp
@@ -394,3 +396,40 @@ def inductive_knn_fraction(clf = Orange.distance.Euclidean(),
 				   weighted = False):
 	nc = cp.nonconformity.KNNFraction(clf, k, weighted)
 	return cp.classification.InductiveClassifier(nc)
+
+def make_graph_inductive_inverse_probability(clf, tab, ratio_split=[1,4], eps=2.5):
+    train, test = next(cp.evaluation.RandomSampler(tab, a=ratio_split[1], b=ratio_split[0]))
+    res=util.result_to_dict(util.run_inductive_inverse_probability(clf, train))
+    model=util.fit_inductive_inverse_probability(clf, train)
+    model_preds = [model.predict(x) for x in test]
+    df_model_preds = util.preds_to_df(util.set_eps(model_preds, eps))
+    scaler = MinMaxScaler()
+    df_model_preds ['instance'] = test
+    df_model_preds ['accuracy'] = res['accuracy']
+    df_model_preds[['confidence', 'credibility']] = df_model_preds[['confidence', 'credibility']]
+    df_model_preds=df_model_preds.sort_values(['confidence', 'credibility'], ascending=[False, False]).reset_index(drop=True)
+
+    fig, ax = plt.subplots()
+    df_model_preds.plot(y=['confidence'], use_index=True, ax=ax, linewidth=2.5)
+    df_model_preds.plot(y=['credibility','accuracy'], use_index=True, ax=ax)
+    fig.suptitle('%s' % str(clf).title() , fontsize=16)
+    plt.vlines(x = [np.quantile(list(df_model_preds.index), .25),np.quantile(list(df_model_preds.index), .50),np.quantile(list(df_model_preds.index), .75)], ymin = 0, ymax = 1,
+           colors = 'purple',
+            linestyles= 'dashed')
+    fig=fig
+
+
+    df_model_preds[['confidence', 'credibility']] = scaler.fit_transform(df_model_preds[['confidence', 'credibility']])
+    df_model_preds=df_model_preds.sort_values(['confidence', 'credibility'], ascending=[False, False]).reset_index(drop=True)
+
+    fig2, ax = plt.subplots()
+    df_model_preds.plot(y=['confidence'], use_index=True, ax=ax, linewidth=2.5)
+    df_model_preds.plot(y=['credibility','accuracy'], use_index=True, ax=ax)
+    ax.set_yticks(ticks=[0,1]) 
+    ax.set_yticklabels(labels=['Min','Max'])
+    fig2.suptitle('%s as Min Max' % str(clf).title() , fontsize=16)
+    plt.vlines(x = [np.quantile(list(df_model_preds.index), .25),np.quantile(list(df_model_preds.index), .50),np.quantile(list(df_model_preds.index), .75)], ymin = 0, ymax = 1,
+           colors = 'purple',
+            linestyles= 'dashed')
+    fig_min_max=fig2
+    return fig, fig_min_max
