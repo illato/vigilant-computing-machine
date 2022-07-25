@@ -28,9 +28,8 @@ sim_Gail_signal_add_NA
 # 'code/BCRAT prediction for Simulated data_w_NA_and_multiple_imputation.R'
 # that does prediction after the data is generated. The result is 'imputed1'
 #
-# I motion to move this logic from  './ML_BCP/code' 
-# into the appropriate script under './ML_BCP/data/'
-# OR aggregate them when we refactor/parameterize data generation
+# Included logic mentioned above when aggregated/parameterized data generation
+# See: './source/BCRAT_Synthetic_Data_Generator.R'
 imputed1
 
 

@@ -261,6 +261,23 @@ generate_missing_or_imputed_data <- function(return_missing, sim_Gail_signal){
   imputed4<-raw.complete$`chain:4`[1:10]
   str(imputed1)
   
+  
+  # Original author mutates (aggregated below) 'imputed1' prior to prediction in 
+  # 'code/BCRAT prediction for Simulated data_w_NA_and_multiple_imputation.R'
+  #
+  #imputed1 gail risk
+  imputed1$HypPlas<-as.numeric(as.character(imputed1$HypPlas))
+  imputed1$Case_signalYN<-as.numeric(as.character(imputed1$Case_signalYN))
+  imputed1$Case_signalYN<-as.numeric(imputed1$Case_signalYN)
+  imputed1$AgeMen<-round(imputed1$AgeMen)
+  imputed1$Age1st<-round(imputed1$Age1st)
+  imputed1$N_Rels<-round(imputed1$N_Rels)
+  imputed1$N_Rels<-ifelse(imputed1$N_Rels<0,0,imputed1$N_Rels)
+  imputed1$Age1st<-ifelse(imputed1$Age1st<0,98,imputed1$Age1st)
+  imputed1$Age1st<-ifelse(imputed1$Age1st>45,40,imputed1$Age1st)
+  imputed1$Age1st<-ifelse(imputed1$Age1st<16,18,imputed1$Age1st)
+  imputed1$Age1st<-ifelse(imputed1$Age1st>imputed1$T1,imputed1$T1,imputed1$Age1st)
+  
   ifelse(return_missing, return(sim_Gail_signal_add_NA), return(imputed1))
 }
 
@@ -325,3 +342,50 @@ write.csv(missing_modified,
 write.csv(imputed_modified, 
           file = './ML_BCP/data/synthetic/imputed_race.csv', 
           row.names = FALSE)
+
+
+calc_case_signalYN_race_weighted <- function(T1, T2, N_Biop, HypPlas, AgeMen, Age1st, N_Rels, Race){
+  return(c(0.3*T1+0.2*N_Biop+0.1*N_Rels+0.1*AgeMen+0.3*rnorm(20,3)+(1*Race)))
+}
+
+random_race_weighted <- generate_random_or_signal_data(return_signal = FALSE, 
+                                                       Case_signalYN_function = calc_case_signalYN_race_weighted)
+signal_race_weighted <- generate_random_or_signal_data(return_signal = TRUE, 
+                                                       Case_signalYN_function = calc_case_signalYN_race_weighted)
+missing_race_weighted <- generate_missing_or_imputed_data(return_missing = TRUE, 
+                                                          sim_Gail_signal = signal_race_weighted)
+imputed_race_weighted <- generate_missing_or_imputed_data(return_missing = FALSE, 
+                                                          sim_Gail_signal = signal_race_weighted)
+
+
+boxplot(Case_signalYN ~ Race, data = signal_original)
+#
+# Race 2 mu shifts from 0 to 1; 
+# Race 3-5 interquartile range stops extending to 0 
+# Race 6 mu shifts from 0.5 to 1 and interquartile range stops extending to 0 
+# Race 7 mu shifts from 0 to 1 and interquartile range follows, staying on mu
+#
+# original: c(0.3*T1+0.2*N_Biop+0.1*N_Rels+0.1*AgeMen+0.3*rnorm(20,3))
+# modified: c(0.3*T1+0.2*N_Biop+0.1*N_Rels+0.1*AgeMen+0.3*rnorm(20,3)+(1*Race))
+# 
+boxplot(Case_signalYN ~ Race, data = signal_race_weighted)
+
+
+
+
+write.csv(random_race_weighted, 
+          file = './ML_BCP/data/synthetic/random_race_weighted.csv', 
+          row.names = FALSE)
+
+write.csv(signal_race_weighted, 
+          file = './ML_BCP/data/synthetic/signal_race_weighted.csv', 
+          row.names = FALSE)
+
+write.csv(missing_race_weighted, 
+          file = './ML_BCP/data/synthetic/missing_race_weighted.csv', 
+          row.names = FALSE)
+
+write.csv(imputed_race_weighted, 
+          file = './ML_BCP/data/synthetic/imputed_race_weighted.csv', 
+          row.names = FALSE)
+
