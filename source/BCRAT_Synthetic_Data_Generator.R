@@ -24,7 +24,7 @@ calc_case_signalYN_varying_race <- function(T1, T2, N_Biop, HypPlas, AgeMen, Age
   return(c(0.3*T1+0.2*N_Biop+0.1*N_Rels+0.1*AgeMen+0.3*rnorm(20,3)-(1/Race)))
 }
 
-generate_random_or_signal_data <- function(return_signal, Case_signalYN_function){
+generate_random_or_signal_data <- function(return_signal, Case_signalYN_function, sample_size){
   if(missing(return_signal)){
     # R cannot return two data frames 
     # (hacky attempt to modify original code as little as possible)
@@ -41,12 +41,20 @@ generate_random_or_signal_data <- function(return_signal, Case_signalYN_function
       return(c(0.3*T1+0.2*N_Biop+0.1*N_Rels+0.1*AgeMen+0.3*rnorm(20,3)))
     }
   }
+  if(missing(sample_size)){
+    # Allows modifying the sample size
+    #
+    # Default to the original authors' value of 1,200
+    sample_size <- 1200
+  }
+  n <- sample_size
+    
   # re-set seed for reproducibility
   set.seed(42)
   
-  NumSubj <- 1200
+  NumSubj <- n
   
-  ID<-sample(1200, 1200, replace=F)
+  ID<-sample(n, n, replace=F)
   
   #age 
   T1 <- as.integer(rnorm(NumSubj, 52,5))
@@ -61,7 +69,7 @@ generate_random_or_signal_data <- function(return_signal, Case_signalYN_function
   # 'The Breast Cancer Risk Assessment Tool allows health professionals
   # to estimate a woman's risk of developing invasive breast cancer over 
   # the next 5 years and up to age 90 (lifetime risk).'
-  T2 <- c(rep(90, 1200))
+  T2 <- c(rep(90, n))
   
   # Why did the original author make the below
   # probability of having had 3 biopsies greater than the 
@@ -71,7 +79,7 @@ generate_random_or_signal_data <- function(return_signal, Case_signalYN_function
   # HypPlas is based on N_Biop, but beyond that it is not yet clear what was meant
   
   # Number of Biopsy 
-  N_Biop<- sample(c(0,1,2,3,4,5,6),size=1200, replace=TRUE, prob=c(0.8,0.1,0.02,0.07,0.005,0.004,0.001))#Need change in HypPlas Size
+  N_Biop<- sample(c(0,1,2,3,4,5,6),size=n, replace=TRUE, prob=c(0.8,0.1,0.02,0.07,0.005,0.004,0.001))#Need change in HypPlas Size
   table(N_Biop)
   count_Biop<-length(N_Biop[N_Biop!=0])
   count_Biop  #242
@@ -103,14 +111,14 @@ generate_random_or_signal_data <- function(return_signal, Case_signalYN_function
   # 3  13  70 146 225 246 167  71  23   4 232 
   
   #Number of Rekatives have breast cancer
-  N_Rels<- sample(c(0,1,2,3,4,5,6),size=1200, replace=TRUE, prob=c(0.6,0.2,0.1,0.08,0.01,0.005,0.005))
+  N_Rels<- sample(c(0,1,2,3,4,5,6),size=n, replace=TRUE, prob=c(0.6,0.2,0.1,0.08,0.01,0.005,0.005))
   table(N_Rels)
   # N_Rels
   # 0   1   2   3   4   5   6 
   # 710 230 134 102  13   5   6 
   
   #Race
-  Race <- sample(c(1:7),size=1200, replace=TRUE, prob=c(0.5,0.2,0.2,0.08,0.01,0.005,0.005))
+  Race <- sample(c(1:7),size=n, replace=TRUE, prob=c(0.5,0.2,0.2,0.08,0.01,0.005,0.005))
   table(Race)
   # Race
   # 1   2   3   4   5   6   7 
@@ -120,13 +128,13 @@ generate_random_or_signal_data <- function(return_signal, Case_signalYN_function
   # A: BCRAT website notes - This tool cannot accurately estimate breast cancer risk for: Women carrying a breast-cancer-producing mutation in BRCA1 or BRCA2; Women with a previous history of invasive or in situ breast cancer; Women in certain other subgroups
   # source: 'https://bcrisktool.cancer.gov/' (15 July 2022)
   #
-  #BRCA1 <- sample(c(0,1,"NA"),size=1200, replace=TRUE, prob=c(0.2,0.1,0.7))
-  #BRCA2 <- sample(c(0,1,"NA"),size=1200, replace=TRUE, prob=c(0.2,0.05,0.75))
+  #BRCA1 <- sample(c(0,1,"NA"),size=n, replace=TRUE, prob=c(0.2,0.1,0.7))
+  #BRCA2 <- sample(c(0,1,"NA"),size=n, replace=TRUE, prob=c(0.2,0.05,0.75))
   #Weight <- as.integer(rnorm(NumSubj, 80,10))
   #Hight <- as.integer(rnorm(NumSubj, 173,10))
   
   # having cancer
-  Case_Random<-sample(c(0,1),size=1200, replace=TRUE, prob=c(0.5,0.5))
+  Case_Random<-sample(c(0,1),size=n, replace=TRUE, prob=c(0.5,0.5))
   # Case_signal<-c(0.3*T1+0.2*N_Biop+0.1*N_Rels+0.1*AgeMen+0.3*rnorm(20,3)) # original
   Case_signal <- Case_signalYN_function(T1, T2, N_Biop, HypPlas, AgeMen, Age1st, N_Rels, Race)
   print(median(Case_signal)) # 17.86993
@@ -290,6 +298,10 @@ missing_original <- generate_missing_or_imputed_data(return_missing = TRUE,
 imputed_original <- generate_missing_or_imputed_data(return_missing = FALSE, 
                                                      sim_Gail_signal = signal_original)
 
+signal_original_10x <- generate_random_or_signal_data(return_signal = TRUE, 
+                                                      Case_signalYN_function = Case_signalYN_function_original, 
+                                                      sample_size = 12000)
+
 random_modified <- generate_random_or_signal_data(return_signal = FALSE, 
                                                   Case_signalYN_function = calc_case_signalYN_varying_race)
 signal_modified <- generate_random_or_signal_data(return_signal = TRUE, 
@@ -317,6 +329,10 @@ write.csv(random_original,
 
 write.csv(signal_original, 
           file = './ML_BCP/data/synthetic/signal.csv', 
+          row.names = FALSE)
+
+write.csv(signal_original_10x, 
+          file = './ML_BCP/data/synthetic/signal_10x.csv', 
           row.names = FALSE)
 
 write.csv(missing_original, 

@@ -12,6 +12,77 @@ np.random.seed(42)
 # credibility in binary classification is (p-of-most-probable-class)
 
 
+
+def run_experiments(cp_in, train, test, calib, eps=0.1, times=1, rseed=None, method=''):
+    from copy import deepcopy
+    
+    if rseed is not None:
+        np.random.seed(rseed)
+    preds_dfs = []
+    for run in range(times):
+        cc = deepcopy(cp_in)
+        cc.fit(train, calib)
+        preds = []
+        verds = []
+        for ex in test:
+            pred = cc.predict(ex, eps)
+            verds.append(
+                pred.verdict(ex.get_class().value, 
+                             eps))
+            preds.append(pred)
+        preds_df = preds_to_df(preds)
+        preds_df['verdict'] = verds
+        add_inst_to_pred_df(preds_df, 
+                            test)
+        preds_dfs.append(
+            df_pred_inst_metrics(preds_df, 
+                                 dataset_name=test.name,
+                                 mondrian=cc.mondrian,
+                                 method=method, 
+                                 model_for_setup=cc))
+    return pd.concat(preds_dfs, axis=1).T
+
+
+
+
+def plot_experiments(df_experiments, data_title=None, scale=True):
+    import matplotlib.pyplot as plt
+    
+    is_mondrian = (lambda x: ' (Mondrian)' if x else '')
+    is_scaled = (lambda x: '\n(Confidence/Credibility Scaled)' if x else '')
+    fig, ax = plt.subplots()
+
+    for i, run in df_experiments.iterrows():    
+        plot_conf_cred(run.df, 
+                       title=f'{run.classifier}{is_mondrian(run.mondrian)}\ndata: {run.data if data_title is None else data_title}{is_scaled(scale)}', 
+                       ax=ax,
+                       scale=scale,
+                       alpha=0.5)
+        ax.hlines(y=run.verdict, 
+                  xmin=0, 
+                  xmax=len(run.df), 
+                  label=f'acc {run.verdict*100:.2f}%', 
+                  color='g', 
+                  linestyles='--')
+        ax.vlines(x=len(run.df)/4, ymin=0, ymax=1, color='k', lw=3, linestyles=(0, (1, 10)))
+        ax.vlines(x=len(run.df)/2, ymin=0, ymax=1, color='k', lw=3, linestyles=(0, (1, 10)))
+        ax.vlines(x=len(run.df)*3/4, ymin=0, ymax=1, color='k', lw=3, linestyles=(0, (1, 10)))
+        ax.legend()
+
+
+
+
+def get_low_confidence_predictions(df, min_conf=0.95):
+    return df[df['confidence'] < min_conf]
+
+
+
+def get_incorrect_predictions(df):
+    return df[~df['verdict']]
+
+
+
+
 def sort_reindex(df_pred, col=['confidence','credibility']):
     '''
     Sort df by the provided column(s), update index to sorted order
@@ -36,7 +107,7 @@ def sort_reindex(df_pred, col=['confidence','credibility']):
         return df_pred.sort_values(by=col, ascending=[False]*len(col)).reset_index(drop=True)
 
 
-def plot_confidence_credibility_by_index(df_pred, title='', ax=None, alpha=1.0):
+def plot_confidence_credibility_by_index(df_pred, title='', ax=None, alpha=1.0, legend=True):
     '''
     Plot 'confidence' and 'credibility' columns of dataframe by index
 
@@ -50,15 +121,17 @@ def plot_confidence_credibility_by_index(df_pred, title='', ax=None, alpha=1.0):
         axis to plot on. The default is None.
     alpha : float, optional
         alpha value of lines. The default is 1.0.
+    legend : bool, optional
+        display legend in graph. The default is True
 
     Returns
     -------
     None.
 
     '''
-    df_pred.plot(y=['confidence', 'credibility'], use_index=True, title=title, ax=ax, alpha=alpha)
+    df_pred.plot(y=['confidence', 'credibility'], use_index=True, title=title, ax=ax, alpha=alpha, legend=legend)
     
-def plot_conf_cred(df_pred, title='', scale=True, ax=None, alpha=1.0):
+def plot_conf_cred(df_pred, title='', scale=True, ax=None, alpha=1.0, legend=True):
     '''
     Plot df sorted and indexed by 'confidence' and 'credibility'
 
@@ -74,6 +147,8 @@ def plot_conf_cred(df_pred, title='', scale=True, ax=None, alpha=1.0):
         axis to plot on. The default is None.
     alpha : float, optional
         alpha value of lines. The default is 1.0.
+    legend : bool, optional
+        display legend in graph. The default is True
 
     Returns
     -------
@@ -85,7 +160,7 @@ def plot_conf_cred(df_pred, title='', scale=True, ax=None, alpha=1.0):
         from sklearn.preprocessing import MinMaxScaler
         scaler = MinMaxScaler()
         df[['confidence', 'credibility']] = scaler.fit_transform(df[['confidence', 'credibility']])
-    plot_confidence_credibility_by_index(df, title=title, ax=ax, alpha=alpha)
+    plot_confidence_credibility_by_index(df, title=title, ax=ax, alpha=alpha, legend=legend)
 
 
 def tab_x_col_to_int_arr(tab, col_idx):
@@ -173,18 +248,38 @@ def add_insts_to_pred_dfs(dfs, test):
         df = dfs[i].copy()
         # get corresponding Orange Table of test instances
         tab = test[i]
-        # get X attributes (to get column names)
-        attrs = tab.domain.attributes
-        for col_idx, col_name in [(i,x.name) for i,x in zip(list(range(len(attrs))), attrs)]:
-            # for each X variable, add as column in df
-            df.loc[:,col_name] = tab_x_col_to_arr(tab, col_idx=col_idx)
-            # if all integers represented as floats, convert to int
-            df_col_to_int_if_float_is_integer_all(df, col_name)
-        # add y as column representing ground truth class of each instance
-        df.loc[:,'class'] = tab.Y
-        df_col_to_int_if_float_is_integer_all(df, 'class')
+        add_inst_to_pred_df(df, tab)
         out_dfs.append(df)
     return out_dfs
+
+
+def add_inst_to_pred_df(df, test):
+    '''
+    Add test instances to prediction df
+
+    Parameters
+    ----------
+    df : 'pandas.DataFrame'
+        df containing predictions.
+    test : 'Orange.data.Table'
+        Table containing test instances.
+
+    Returns
+    -------
+    None.
+
+    '''
+    tab = test
+    # get X attributes (to get column names)
+    attrs = tab.domain.attributes
+    for col_idx, col_name in [(i,x.name) for i,x in zip(list(range(len(attrs))), attrs)]:
+        # for each X variable, add as column in df
+        df.loc[:,col_name] = tab_x_col_to_arr(tab, col_idx=col_idx)
+        # if all integers represented as floats, convert to int
+        df_col_to_int_if_float_is_integer_all(df, col_name)
+    # add y as column representing ground truth class of each instance
+    df.loc[:,'class'] = tab.Y
+    df_col_to_int_if_float_is_integer_all(df, 'class')
 
 
 def df_pred_empty_mean(df, pred_col_name='classes'):
@@ -318,6 +413,8 @@ def df_pred_inst_metrics(df, dataset_name='Ming', mondrian=False, method='', mod
     s['nonconformity'] = str(model_for_setup.nc_measure) if model_for_setup != None else ''
     s['method'] = method
     s['model'] = str(model_for_setup.nc_measure.__dict__['model']) if model_for_setup != None else ''
+    s['instance_of_model'] = model_for_setup if model_for_setup != None else ''
+    s['df'] = df
     return s
 
 
@@ -365,13 +462,10 @@ def table_to_df(tab, x_only=True):
         DataFrame containing data from the Orange Table.
 
     '''
-    n = len(tab.domain.attributes)
-    names = []
-    for i in range(n):
-        names.append(tab.domain.attributes[i].name)
-    names
-    df = pd.DataFrame(tab.X[:,range(0,n)])
-    df.columns = names # ['T1','N_Biop', 'HypPlas', 'AgeMen','Age1st', 'N_Rels', 'Race']
+    df = pd.DataFrame()
+    for i, attribute in enumerate(tab.domain.attributes):
+        df_tab_signal[attribute] = tab_signal.X[:, i]
+
     if x_only:
         return df
     df[tab.domain.class_var.name] = tab.Y
