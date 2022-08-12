@@ -408,11 +408,17 @@ def df_pred_inst_metrics(df, dataset_name='Ming', mondrian=False, method='', mod
     s['multiple']=df_pred_multiple_mean(df)
     s['data'] = dataset_name
     s['mondrian'] = mondrian
-    s['classifier'] = model_for_setup.nc_measure.__dict__['model'].name if model_for_setup != None else ''
+    try:
+        s['classifier'] = model_for_setup.nc_measure.__dict__['model'].name if model_for_setup != None else ''
+    except KeyError:
+        s['classifier'] = ''
     s['conformal_predictor'] = model_for_setup.__format__('') if model_for_setup != None else ''
     s['nonconformity'] = str(model_for_setup.nc_measure) if model_for_setup != None else ''
     s['method'] = method
-    s['model'] = str(model_for_setup.nc_measure.__dict__['model']) if model_for_setup != None else ''
+    try:
+        s['model'] = str(model_for_setup.nc_measure.__dict__['model']) if model_for_setup != None else ''
+    except KeyError:
+        s['model'] = ''
     s['instance_of_model'] = model_for_setup if model_for_setup != None else ''
     s['df'] = df
     return s
@@ -464,7 +470,7 @@ def table_to_df(tab, x_only=True):
     '''
     df = pd.DataFrame()
     for i, attribute in enumerate(tab.domain.attributes):
-        df_tab_signal[attribute] = tab_signal.X[:, i]
+        df[attribute] = tab.X[:, i]
 
     if x_only:
         return df
