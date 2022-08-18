@@ -1,23 +1,15 @@
 
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
 
 import Orange
 import orangecontrib.conformal as cp
 
-# set NumPy seed for Orange3-Conformal reproducibility
-np.random.seed(42)
-
-# confidence  in binary classification is (1 - (p-of-most-probable-other-class); probability the opposite outcome is not observed)
-# credibility in binary classification is (p-of-most-probable-class)
 
 
-
-def run_experiments(cp_in, train, test, calib, eps=0.1, times=1, rseed=None, method=''):
+def run_experiments(cp_in, train, test, calib, eps=0.1, times=1, method=''):
     from copy import deepcopy
-    
-    if rseed is not None:
-        np.random.seed(rseed)
     preds_dfs = []
     for run in range(times):
         cc = deepcopy(cp_in)
@@ -43,6 +35,96 @@ def run_experiments(cp_in, train, test, calib, eps=0.1, times=1, rseed=None, met
     return pd.concat(preds_dfs, axis=1).T
 
 
+def run_unsplit_experiment(inductive_cp, table, normalizer, out_dir='./', 
+                           name='unsplit_experiment', eps=0.1):
+    from pathlib import PurePath
+    import os
+    if not os.path.exists(out_dir):
+        os.makedirs(out_dir)
+    tab = normalizer(table)
+    df_ex = run_experiments(cp_in=inductive_cp, train=tab, test=tab, calib=tab, 
+                            eps=eps, times=1, method=name)
+    df_meta = df_ex.iloc[:, :-1]
+    df_meta['normalizer'] = str(normalizer.__dict__)
+    df_meta.to_csv(PurePath(out_dir, f'{name}_experiment.csv'), index_label=False)
+    df = df_ex.loc[0, 'df']
+    df.to_csv(PurePath(out_dir, f'{name}_predictions.csv'), index_label=False)
+    
+
+def create_class_imbalance(tab):
+    # get non-cancer
+    non_cancer_indices = np.array([x.row_index for x in tab if x.get_class().value == '0'])
+
+    # get cancer (randomized, but reproducible)
+    cancer_indices = np.array([x.row_index for x in tab if x.get_class().value == '1'])
+    cancer_indices_randomized = np.random.default_rng(42).permutation(cancer_indices)
+
+    # get 1 in 10 cancer
+    cancer_indices_tenth = cancer_indices_randomized[-int(len(cancer_indices) / 10):]
+
+    # create new table with healthy:cancer == 10:1
+    return Orange.data.Table.from_table_rows(tab, 
+                                             np.concatenate([cancer_indices_tenth, 
+                                                             non_cancer_indices]))
+
+
+def plot_race_representation_all_vs_low(all_rep, low_rep, clf, data_name, mondrian, sample_size, ax=None):
+    width = 0.35
+    x = np.arange(len(all_rep.index))
+
+    if ax is None:
+        fig, ax = plt.subplots()
+        fig.tight_layout()
+        fig.set_figwidth(10)
+        fig.set_figheight(10)
+
+    ax.bar(x - width/2, 
+           all_rep, 
+           width, 
+           color='blue', 
+           label='population')
+
+    ax.bar(x + width/2, 
+           low_rep, 
+           width, 
+           color='orange', 
+           label='low confidence')
+
+    ax.legend()
+    ms = (lambda x: ' (Mondrian)' if x else '')
+    ax.set_title(f'Race Representation - Population Sample vs Low Confidence\n{clf}\n{data_name}\nn={sample_size}{ms(mondrian)}')
+
+    
+def read_experiment(experiment_csv):
+    pred_csv = experiment_csv.replace('experiment', 'predictions')
+    exp = pd.read_csv(experiment_csv)
+    exp['df'] = [pd.read_csv(pred_csv)]
+    return exp    
+
+    
+def plot_race_representation_from_experiment(exp, ax=None):
+    mondrian = exp.loc[0, 'mondrian']
+    cpred = exp.loc[0, 'conformal_predictor']
+    data_name = exp.loc[0, 'data']
+    df = exp.loc[0, 'df']
+    sample_size = len(df)
+
+    n = df.Race.value_counts().sort_index()
+    nr = n.values.sum()
+    d = pd.DataFrame()
+    d['all_race_n'] = n
+    d['all_race'] = n / nr
+
+    dd = get_low_confidence_predictions(df, 10)
+    n = dd.Race.value_counts().sort_index()
+    nr = n.values.sum()
+    d['low_race_n'] = n
+    d['low_race'] = n / nr
+    d = d.fillna(0)
+    d['low_race_n'] = d['low_race_n'].astype(int)
+    plot_race_representation_all_vs_low(d.all_race, d.low_race.values, 
+                                        cpred, data_name, mondrian, sample_size, ax=ax)
+    d
 
 
 def plot_experiments(df_experiments, data_title=None, scale=True):
@@ -53,8 +135,9 @@ def plot_experiments(df_experiments, data_title=None, scale=True):
     fig, ax = plt.subplots()
 
     for i, run in df_experiments.iterrows():    
+        clf = run.classifier if run.classifier is not None else 'KNN'
         plot_conf_cred(run.df, 
-                       title=f'{run.classifier}{is_mondrian(run.mondrian)}\ndata: {run.data if data_title is None else data_title}{is_scaled(scale)}', 
+                       title=f'{clf}{is_mondrian(run.mondrian)}\ndata: {run.data if data_title is None else data_title}{is_scaled(scale)}', 
                        ax=ax,
                        scale=scale,
                        alpha=0.5)
@@ -70,11 +153,20 @@ def plot_experiments(df_experiments, data_title=None, scale=True):
         ax.legend()
 
 
-
-
-def get_low_confidence_predictions(df, min_conf=0.95):
-    return df[df['confidence'] < min_conf]
-
+def get_low_confidence_predictions(df, percentile=10):
+    #check valid range
+    assert 0 < percentile and percentile < 100, 'percentile outside valid range'
+    if percentile < 1:
+        percentile = percentile * 100
+    #integer math rounds down, preventing rounding up beyond bounds for small collections (though .head() handles)
+    #open to reasons to round up
+    num_to_return = len(df) // percentile
+    #when predictions with the same confidence value span the percentile boundary,
+    #credibility will be used as the secondary sort criteria
+    #when predictions with the same confidence and credibility span the percentile boundary,
+    #predictions will be returned based upon their index values in the provided DataFrame
+    df = df.sort_values(by=['confidence', 'credibility'], kind='mergesort')
+    return df.head(num_to_return)
 
 
 def get_incorrect_predictions(df):
@@ -102,9 +194,9 @@ def sort_reindex(df_pred, col=['confidence','credibility']):
 
     '''
     if type(col) == str:
-        return df_pred.sort_values(by=col, ascending=False).reset_index(drop=True)
+        return df_pred.sort_values(by=col, ascending=False, kind='mergesort').reset_index(drop=True)
     if type(col) == list:
-        return df_pred.sort_values(by=col, ascending=[False]*len(col)).reset_index(drop=True)
+        return df_pred.sort_values(by=col, ascending=[False]*len(col), kind='mergesort').reset_index(drop=True)
 
 
 def plot_confidence_credibility_by_index(df_pred, title='', ax=None, alpha=1.0, legend=True):
@@ -408,47 +500,51 @@ def df_pred_inst_metrics(df, dataset_name='Ming', mondrian=False, method='', mod
     s['multiple']=df_pred_multiple_mean(df)
     s['data'] = dataset_name
     s['mondrian'] = mondrian
-    try:
-        s['classifier'] = model_for_setup.nc_measure.__dict__['model'].name if model_for_setup != None else ''
-    except KeyError:
+    if model_for_setup is not None:
+        try:        
+            nc = model_for_setup.nc_measure
+            if isinstance(nc, cp.nonconformity.ClassModelNC):
+                s['classifier'] = model_for_setup.nc_measure.__dict__['model'].name
+                s['model'] = str(model_for_setup.nc_measure.__dict__['model'])
+            elif isinstance(nc, cp.nonconformity.ClassNearestNeighboursNC):
+                s['classifier'] = f'KNN - {type(model_for_setup.nc_measure.distance).__name__}'
+                s['model'] = ''
+            else:
+                s['classifier'] = f'{type(model_for_setup).__name__} - {type(model_for_setup.nc_measure).__name__}'
+                s['model'] = ''
+        except KeyError:
+            s['classifier'] = ''
+            s['model'] = ''
+        s['conformal_predictor'] = model_for_setup.__format__('')
+        s['nonconformity'] = str(model_for_setup.nc_measure)
+        s['method'] = method
+        s['instance_of_model'] = model_for_setup
+    else:
         s['classifier'] = ''
-    s['conformal_predictor'] = model_for_setup.__format__('') if model_for_setup != None else ''
-    s['nonconformity'] = str(model_for_setup.nc_measure) if model_for_setup != None else ''
-    s['method'] = method
-    try:
-        s['model'] = str(model_for_setup.nc_measure.__dict__['model']) if model_for_setup != None else ''
-    except KeyError:
-        s['model'] = ''
-    s['instance_of_model'] = model_for_setup if model_for_setup != None else ''
+        s['conformal_predictor'] = ''
+        s['nonconformity'] = ''
+        s['method'] = method
+        s['instance_of_model'] = model_for_setup if model_for_setup != None else ''
     s['df'] = df
     return s
 
 
-def read_csv_to_table(filepath, normalize = True):
+def read_csv_to_table(filepath):
     '''
-    Reads a CSV with Orange headers and returns an 'Orange.data.Table' that
-    is normalized by default
+    Reads a CSV with Orange headers and returns an 'Orange.data.Table'.
 
     Parameters
     ----------
     filepath : string
         Path to CSV file.
-    normalize : bool, optional
-        NormalizeBySpan, else leave as is. The default is True.
 
     Returns
     -------
     'Orange.data.Table'
-        Table of data corresponding to the CSV file (normalized by default).
+        Table of data corresponding to the CSV file.
 
     '''
-    tab = Orange.data.Table(filepath)
-    if not normalize:
-        return tab
-    normalizer = Orange.preprocess.Normalizer(
-			zero_based = True,
-			norm_type = Orange.preprocess.Normalize.NormalizeBySpan)
-    return normalizer(tab)
+    return Orange.data.Table(filepath)
 
 
 def table_to_df(tab, x_only=True):
@@ -470,7 +566,7 @@ def table_to_df(tab, x_only=True):
     '''
     df = pd.DataFrame()
     for i, attribute in enumerate(tab.domain.attributes):
-        df[attribute] = tab.X[:, i]
+        df[attribute.name] = tab.X[:, i]
 
     if x_only:
         return df
