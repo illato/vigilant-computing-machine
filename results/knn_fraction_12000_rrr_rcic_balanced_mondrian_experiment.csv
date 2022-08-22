@@ -1,0 +1,2 @@
+confidence,credibility,verdict,empty,single,single_correct,multiple,data,mondrian,classifier,model,conformal_predictor,nonconformity,method,instance_of_model,normalizer
+0,0.9690801931864215,0.7900756417364899,0.92725,0.0,0.935,0.86225,0.065,10x Race-Rel. Risk - 1:1 - healthy:cancer,True,,,RaceConditionalIndClf (KNNFraction (k=5)),KNNFraction (k=5),knn_fraction_12000_rrr_rcic_balanced_mondrian,RaceConditionalIndClf (KNNFraction (k=5)),"{'zero_based': True, 'norm_type': Normalize.NormalizeBySD, 'transform_class': False, 'center': True, 'normalize_datetime': False}"

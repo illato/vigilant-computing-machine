@@ -48,8 +48,10 @@ def run_unsplit_experiment(inductive_cp, table, normalizer, out_dir='./',
     df_meta['normalizer'] = str(normalizer.__dict__)
     df_meta.to_csv(PurePath(out_dir, f'{name}_experiment.csv'), index_label=False)
     df = df_ex.loc[0, 'df']
+    for i,meta_attr in enumerate(table.domain.metas):
+        df[meta_attr] = tab.metas[:, i]
     df.to_csv(PurePath(out_dir, f'{name}_predictions.csv'), index_label=False)
-    
+
 
 def create_class_imbalance(tab):
     # get non-cancer
@@ -66,6 +68,30 @@ def create_class_imbalance(tab):
     return Orange.data.Table.from_table_rows(tab, 
                                              np.concatenate([cancer_indices_tenth, 
                                                              non_cancer_indices]))
+
+
+def plot_confidence_by_verdict(df, ax=None, title_suffix=''):
+    import seaborn as sns
+    df = sort_reindex(df)
+    cnt = max(df.index) - min(df.index)
+    g = sns.lineplot(x=range(cnt+1), y='confidence', hue='verdict', data=df, alpha=0.4, linewidth=4, ax=ax)
+    g.set_title(f'Confidence by Verdict\n(true class in prediction set){title_suffix}')
+    ldr_max_conf = get_low_confidence_predictions(df, percentile=10).confidence.max()
+    g.hlines(ldr_max_conf, xmin=0, xmax=cnt, color='r', linestyles='--', label='LDR')
+    g.tick_params(axis='x', bottom=False, labelbottom=True)
+    g.legend()
+
+
+def plot_credibility_by_verdict(df, ax=None, title_suffix=''):
+    import seaborn as sns
+    df = sort_reindex(df)
+    cnt = max(df.index) - min(df.index)
+    g = sns.lineplot(x=range(cnt+1), y='credibility', hue='verdict', data=df, alpha=0.4, linewidth=4, ax=ax)
+    g.set_title(f'Credibility by Verdict\n(true class in prediction set){title_suffix}')
+    ldr_max_cred = get_low_credibility_predictions(df, percentile=10).credibility.max()
+    g.hlines(ldr_max_cred, xmin=0, xmax=cnt, color='r', linestyles='--', label='LDR')
+    g.tick_params(axis='x', bottom=False, labelbottom=True)
+    g.legend()
 
 
 def plot_race_representation_all_vs_low(all_rep, low_rep, clf, data_name, mondrian, sample_size, ax=None):
@@ -98,11 +124,18 @@ def plot_race_representation_all_vs_low(all_rep, low_rep, clf, data_name, mondri
 def read_experiment(experiment_csv):
     pred_csv = experiment_csv.replace('experiment', 'predictions')
     exp = pd.read_csv(experiment_csv)
-    exp['df'] = [pd.read_csv(pred_csv)]
+    df = pd.read_csv(pred_csv)
+    df.classes = df.classes.apply((lambda x: list(x.replace('\"','')
+                                                  .replace('[','')
+                                                  .replace('\'','')
+                                                  .replace(',','')
+                                                  .replace(' ','')
+                                                  .replace(']',''))))
+    exp['df'] = [df]
     return exp    
 
     
-def plot_race_representation_from_experiment(exp, ax=None):
+def plot_race_representation_from_experiment(exp, ax=None, treat_empty_as_low_conf=False):
     mondrian = exp.loc[0, 'mondrian']
     cpred = exp.loc[0, 'conformal_predictor']
     data_name = exp.loc[0, 'data']
@@ -115,8 +148,11 @@ def plot_race_representation_from_experiment(exp, ax=None):
     d['all_race_n'] = n
     d['all_race'] = n / nr
 
-    dd = get_low_confidence_predictions(df, 10)
-    n = dd.Race.value_counts().sort_index()
+    lc = get_low_confidence_predictions(df, 10)
+    if treat_empty_as_low_conf:
+        emp = df[get_empty_predictions_mask(df)]
+        lc = df.loc[lc.index.join(emp.index, how='outer')]
+    n = lc.Race.value_counts().sort_index()
     nr = n.values.sum()
     d['low_race_n'] = n
     d['low_race'] = n / nr
@@ -153,6 +189,69 @@ def plot_experiments(df_experiments, data_title=None, scale=True):
         ax.legend()
 
 
+def plot_prediction(preds_list_s, min_conf=None, min_cred=None, title=None):
+    fig,ax = plt.subplots()
+    
+    confs = []
+    creds = []
+    label_x = []
+    label_y = []
+    error_x = []
+    error_y = []
+    for i,pred_series in enumerate(preds_list_s):
+        confs.append(pred_series.confidence * -1)
+        creds.append(pred_series.credibility)
+        classes = [int(c) for c in pred_series.classes]
+        true_class = int(pred_series.loc['class'])
+        label_x.append(i)
+        label_y.append(true_class)
+        if true_class not in classes:
+            error_x.append(i)
+            if true_class == 0:
+                error_y.append(1)
+            else:
+                error_y.append(0)
+    
+    x = list(range(len(confs)))
+    ax.scatter(x, creds, marker='o', color='b', clip_on=False, label='Cred', zorder=2)
+    ax.scatter(x, confs, marker='o', color='g', clip_on=False, label='Conf', zorder=2)
+    ax.scatter(error_x, error_y, marker='X', color='r', clip_on=False, label='Error', zorder=3, s=120)
+    ax.scatter(label_x, label_y, marker='o', color='k', clip_on=False, label='Label', zorder=4)
+    
+    ax.legend(bbox_to_anchor=(1.204, 1), loc='upper right')
+
+    markerline, stemlines, baseline = plt.stem(range(len(creds)), creds)
+    conf_stemlines = stemlines
+    plt.setp(baseline, 'color', 'k')
+    plt.setp(baseline, 'linewidth', 0.25)
+    plt.setp(stemlines, 'color', 'b')
+    plt.setp(stemlines, 'linewidth', 4)
+    plt.setp(markerline, 'color', 'b')
+    markerline, stemlines, baseline = plt.stem(range(len(confs)), confs)
+    plt.setp(baseline, 'color', 'k')
+    plt.setp(baseline, 'linewidth', 0.25)
+    plt.setp(stemlines, 'color', 'g')
+    plt.setp(stemlines, 'linewidth', 4)
+    plt.setp(markerline, 'color', 'g')
+    cred_stemlines = stemlines
+    
+    ax.scatter(error_x, error_y, marker='x', color='k', clip_on=False, label='Error', zorder=3, s=100, linewidth=0.5)
+    if min_cred is not None:
+        ax.hlines(min_cred, xmin=0, xmax=len(confs)-1, linewidth=1.5, linestyle='--', zorder=5, color='r')
+    if min_conf is not None:
+        ax.hlines(-min_conf, xmin=0, xmax=len(confs)-1, linewidth=1.5, linestyle='--', zorder=5, color='r')
+
+    plt.ylim((-1,1))
+    ax.tick_params(axis='x', bottom=False, labelbottom=False)
+    ax.set_ylabel('Probability measure\n(Confidence plotted as -Confidence),\n0/1 class label (error)')
+    ax.set_xlabel('Conformal Predictors')
+    if title is not None:
+        ax.set_title(title)
+    [spine.set_linewidth(0.25) for edge,spine in ax.spines.items()]
+
+    plt.show()
+
+
 def get_low_confidence_predictions(df, percentile=10):
     #check valid range
     assert 0 < percentile and percentile < 100, 'percentile outside valid range'
@@ -166,13 +265,48 @@ def get_low_confidence_predictions(df, percentile=10):
     #when predictions with the same confidence and credibility span the percentile boundary,
     #predictions will be returned based upon their index values in the provided DataFrame
     df = df.sort_values(by=['confidence', 'credibility'], kind='mergesort')
-    return df.head(num_to_return)
+    return df.iloc[:num_to_return, :]
+
+
+def get_low_credibility_predictions(df, percentile=10):
+    #check valid range
+    assert 0 < percentile and percentile < 100, 'percentile outside valid range'
+    if percentile < 1:
+        percentile = percentile * 100
+    #integer math rounds down, preventing rounding up beyond bounds for small collections (though .head() handles)
+    #open to reasons to round up
+    num_to_return = len(df) // percentile
+    #when predictions with the same credibility value span the percentile boundary,
+    #confidence will be used as the secondary sort criteria
+    #when predictions with the same confidence and credibility span the percentile boundary,
+    #predictions will be returned based upon their index values in the provided DataFrame
+    df = df.sort_values(by=['credibility', 'confidence'], kind='mergesort')
+    return df.iloc[:num_to_return, :]
+
+
+def get_experiments_max_low_confidence(experiments):
+    return [get_low_confidence_predictions(exp.df[0], percentile=10).confidence.max() for exp in experiments]
+
+
+def get_experiments_max_low_credibility(experiments):
+    return [get_low_credibility_predictions(exp.df[0], percentile=10).credibility.max() for exp in experiments]
+
+
+def get_experiments_median_low_credibility(experiments):
+    return [get_low_credibility_predictions(exp.df[0], percentile=10).credibility.median() for exp in experiments]
 
 
 def get_incorrect_predictions(df):
     return df[~df['verdict']]
 
+def get_empty_predictions_mask(df):
+    return df.classes.apply((lambda x: len(x) == 0))
 
+def get_single_predictions_mask(df):
+    return df.classes.apply((lambda x: len(x) == 1))
+
+def get_multiple_predictions_mask(df):
+    return df.classes.apply((lambda x: len(x) > 1))
 
 
 def sort_reindex(df_pred, col=['confidence','credibility']):
@@ -503,10 +637,11 @@ def df_pred_inst_metrics(df, dataset_name='Ming', mondrian=False, method='', mod
     if model_for_setup is not None:
         try:        
             nc = model_for_setup.nc_measure
-            if isinstance(nc, cp.nonconformity.ClassModelNC):
-                s['classifier'] = model_for_setup.nc_measure.__dict__['model'].name
-                s['model'] = str(model_for_setup.nc_measure.__dict__['model'])
-            elif isinstance(nc, cp.nonconformity.ClassNearestNeighboursNC):
+            mod = model_for_setup.nc_measure.__dict__['model']
+            if isinstance(nc, cp.nonconformity.ClassModelNC) and mod is not None:
+                s['classifier'] = mod.name
+                s['model'] = str(mod)
+            elif isinstance(nc, cp.nonconformity.ClassNearestNeighboursNC) and mod is not None:
                 s['classifier'] = f'KNN - {type(model_for_setup.nc_measure.distance).__name__}'
                 s['model'] = ''
             else:

@@ -24,7 +24,38 @@ calc_case_signalYN_varying_race <- function(T1, T2, N_Biop, HypPlas, AgeMen, Age
   return(c(0.3*T1+0.2*N_Biop+0.1*N_Rels+0.1*AgeMen+0.3*rnorm(20,3)-(1/Race)))
 }
 
-generate_random_or_signal_data <- function(return_signal, Case_signalYN_function, sample_size){
+calc_case_signalYN_race_weighted <- function(T1, T2, N_Biop, HypPlas, AgeMen, Age1st, N_Rels, Race){
+  return(c(0.3*T1+0.2*N_Biop+0.1*N_Rels+0.1*AgeMen+0.3*rnorm(20,3)+(1*Race)))
+}
+
+Case_signalYN_function_non_linear_race_risk_factor <- function(Race){
+  return(case_when(Race == 1 ~ -0.0025, 
+                   Race == 2 ~  0.00375, 
+                   Race == 3 ~ -0.00125, 
+                   Race == 4 ~  0.00125, 
+                   Race == 5 ~  0.00875, 
+                   Race == 6 ~  0.0175, 
+                   Race == 7 ~  0.005, 
+                   TRUE ~ 0))
+}
+
+# Alternatively, add Race-Relative Risk before 
+# Gaussian noise (as part of Case_signalYN_function).
+# Though, include_risk_columns does not currently accomodate
+#
+# Case_signalYN_function_rrr <- function(T1, T2, N_Biop, HypPlas, AgeMen, Age1st, N_Rels, Race){
+#   base_signal <- c(0.3*T1+0.2*N_Biop+0.1*N_Rels+0.1*AgeMen)
+#   race_relative_risk <- Case_signalYN_function_non_linear_race_risk_factor(Race)
+#   signal <- base_signal + (base_signal * race_relative_risk)
+#   signal_with_noise <- c(signal+0.3*rnorm(20,3))
+#   return(signal_with_noise)
+# }
+
+generate_random_or_signal_data <- function(return_signal, 
+                                           Case_signalYN_function, 
+                                           sample_size, 
+                                           race_risk_factor_function, 
+                                           include_risk_columns){
   if(missing(return_signal)){
     # R cannot return two data frames 
     # (hacky attempt to modify original code as little as possible)
@@ -40,6 +71,23 @@ generate_random_or_signal_data <- function(return_signal, Case_signalYN_function
     Case_signalYN_function <- function(T1, T2, N_Biop, HypPlas, AgeMen, Age1st, N_Rels, Race){
       return(c(0.3*T1+0.2*N_Biop+0.1*N_Rels+0.1*AgeMen+0.3*rnorm(20,3)))
     }
+  }
+  if(missing(race_risk_factor_function)){
+    # Allows defining a Race-Relative Risk (RRR) factor
+    # that will be multiplied by the overall risk
+    # then added to the overall risk
+    #
+    # Default to original authors' lack of RRR
+    race_risk_factor_function <- function(Race){
+      return(case_when(TRUE ~ 0))
+    }
+  }
+  if(missing(include_risk_columns)){
+    # Allows including overall risk, RRR, and median risk
+    # as columns in output
+    #
+    # Default to original authors' lack of these columns
+    include_risk_columns <- FALSE
   }
   if(missing(sample_size)){
     # Allows modifying the sample size
@@ -138,6 +186,15 @@ generate_random_or_signal_data <- function(return_signal, Case_signalYN_function
   # Case_signal<-c(0.3*T1+0.2*N_Biop+0.1*N_Rels+0.1*AgeMen+0.3*rnorm(20,3)) # original
   Case_signal <- Case_signalYN_function(T1, T2, N_Biop, HypPlas, AgeMen, Age1st, N_Rels, Race)
   print(median(Case_signal)) # 17.86993
+  
+  # consider difference between RRR being applied before/after 
+  # inclusion of Gaussian Noise 
+  # (rnorm(20,3) in original Case_signalYN_function)
+  race_relative_risk <- (Case_signal * race_risk_factor_function(Race)) 
+  
+  Case_signal <- Case_signal + race_relative_risk
+  print(median(Case_signal))
+  
   #Case_signalYN<-ifelse(Case_signal>17.86993, 1, 0) # originally hard-coded
   Case_signalYN<-ifelse(Case_signal>median(Case_signal), 1, 0)
   table(Case_Random)
@@ -153,7 +210,26 @@ generate_random_or_signal_data <- function(return_signal, Case_signalYN_function
   # Data (putting all components together)
   
   sim_Gail_Random<- cbind(ID,T1,T2,N_Biop,HypPlas,AgeMen,Age1st,N_Rels,Race,Case_Random)
-  sim_Gail_signal<- cbind(ID,T1,T2,N_Biop,HypPlas,AgeMen,Age1st,N_Rels,Race,Case_signalYN)
+  
+  if(include_risk_columns){
+    median_risk <- rep(median(Case_signal, length(Case_signal)))
+    sim_Gail_signal<- cbind(ID,T1,T2,N_Biop,HypPlas,AgeMen,Age1st,N_Rels,Race,Case_signalYN, 
+                            Case_signal, race_relative_risk, median_risk)
+    signal_column_names <- c(
+      "ID",
+      "T1","T2",
+      "N_Biop", "HypPlas", "AgeMen",
+      "Age1st", "N_Rels", "Race", "Case_signalYN", 
+      "Case_signal", "race_relative_risk", "median_risk")
+  }
+  else{
+    sim_Gail_signal<- cbind(ID,T1,T2,N_Biop,HypPlas,AgeMen,Age1st,N_Rels,Race,Case_signalYN)
+    signal_column_names <- c(
+      "ID",
+      "T1","T2",
+      "N_Biop", "HypPlas", "AgeMen",
+      "Age1st", "N_Rels", "Race", "Case_signalYN")
+  }
   
   #Assign the column names
   
@@ -360,10 +436,6 @@ write.csv(imputed_modified,
           row.names = FALSE)
 
 
-calc_case_signalYN_race_weighted <- function(T1, T2, N_Biop, HypPlas, AgeMen, Age1st, N_Rels, Race){
-  return(c(0.3*T1+0.2*N_Biop+0.1*N_Rels+0.1*AgeMen+0.3*rnorm(20,3)+(1*Race)))
-}
-
 random_race_weighted <- generate_random_or_signal_data(return_signal = FALSE, 
                                                        Case_signalYN_function = calc_case_signalYN_race_weighted)
 signal_race_weighted <- generate_random_or_signal_data(return_signal = TRUE, 
@@ -405,3 +477,22 @@ write.csv(imputed_race_weighted,
           file = './ML_BCP/data/synthetic/imputed_race_weighted.csv', 
           row.names = FALSE)
 
+
+signal_non_linear_rrr <- generate_random_or_signal_data(race_risk_factor_function = Case_signalYN_function_non_linear_race_risk_factor, 
+                                                        include_risk_columns = TRUE)
+
+signal_non_linear_rrr_10x <- generate_random_or_signal_data(sample_size = 12000,
+                                                            race_risk_factor_function = Case_signalYN_function_non_linear_race_risk_factor, 
+                                                            include_risk_columns = TRUE)
+
+
+boxplot(Case_signalYN ~ Race, data = signal_non_linear_rrr)
+boxplot(Case_signalYN ~ Race, data = signal_non_linear_rrr_10x)
+
+write.csv(signal_non_linear_rrr, 
+          file = './ML_BCP/data/synthetic/signal_non_linear_rrr.csv', 
+          row.names = FALSE)
+
+write.csv(signal_non_linear_rrr_10x, 
+          file = './ML_BCP/data/synthetic/signal_non_linear_rrr_10x.csv', 
+          row.names = FALSE)
