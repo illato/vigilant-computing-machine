@@ -2,8 +2,9 @@ from orangecontrib.conformal.classification import InductiveClassifier
 from copy import deepcopy
 import numpy as np
 
-class RaceConditionalIndClf(InductiveClassifier):
-    """Race-Conditional Inductive classification.
+
+class RaceConditionalInductiveClassifier(InductiveClassifier):
+    """Race-Conditional Inductive Classification.
     Attributes:
         alpha: Nonconformity scores of the calibration instances. Computed by the :py:func:`fit` method.
     """
@@ -12,10 +13,10 @@ class RaceConditionalIndClf(InductiveClassifier):
         """Initialize feature-conditional inductive classifier based on Race with a nonconformity measure.
         Args:
             nc_measure (ClassNC): Classification nonconformity measure.
-            mondrian (bool): Use a mondrian setting for computing label-conditional p-values.
+            mondrian (bool): Use a mondrian setting for computing label-conditional p-values 
+            (True will cause p-values to be not only feature-conditional, but also label-conditional).
         """
         super().__init__(nc_measure, mondrian=mondrian)
-        self.nc_measure_base = deepcopy(self.nc_measure)
         self.mondrian_feature = 'Race'
 
     def fit(self, train, calibrate):
@@ -25,6 +26,58 @@ class RaceConditionalIndClf(InductiveClassifier):
             train: Table of examples used as a training set.
             calibrate: Table of examples used as a calibration set.
         """
+        self.mf_idx = None
+        for i,attr in enumerate(train.domain.attributes):
+            if attr.name == self.mondrian_feature:
+                self.mf_idx = i
+                break
+        assert self.mf_idx is not None
+        super().fit(train, calibrate)
+
+    def p_values(self, example):
+        """Compute feature-conditional (Race) p-values for every possible class.
+        Inductive classifier assigns an assumed class value to the given example and compares its nonconformity
+        against all other instances belonging to the same feature-conditional category in the calibration set 
+        (mondrian=True, will also be label-conditional).
+        Args:
+            example (Instance): Orange row instance.
+        Returns:
+            List of pairs (p-value, class)
+        """
+        race_n = example[self.mf_idx]
+        classes = []
+        ps = []
+        temp = example.get_class()
+        for yi, y in enumerate(self.domain.class_var.values):
+            example.set_class(yi)
+            alpha_n = self.nc_measure.nonconformity(example)
+            if self.mondrian:
+                alpha = np.array([a for a, cal in zip(self.alpha, self.calibrate) \
+                                  if cal[self.mf_idx] == race_n and cal.get_class() == y])
+            else:
+                alpha = np.array([a for a, cal in zip(self.alpha, self.calibrate) \
+                                  if cal[self.mf_idx] == race_n])
+            p_y = (sum(alpha >= alpha_n)+1) / (len(alpha)+1)
+            ps.append((p_y, y))
+        example.set_class(temp)
+        return ps
+
+
+#
+# !!! retained only to preserve logic that produced corresponding experiment results
+#
+class RaceConditionalIndClf(InductiveClassifier):
+    """Deprecated. Note: this class is only retained to preserve the logic that produced corresponding
+    experiment results. This class creates an indvidual underlying classifier for each race, which
+    means that no one classifier has seen the entire distribution provided to fit--invalidating assumptions.
+    """
+
+    def __init__(self, nc_measure, mondrian=False):
+        super().__init__(nc_measure, mondrian=mondrian)
+        self.nc_measure_base = deepcopy(self.nc_measure)
+        self.mondrian_feature = 'Race'
+
+    def fit(self, train, calibrate):
         self.domain = train.domain
         self.calibrate = calibrate
         self.mf_idx = None
@@ -61,14 +114,6 @@ class RaceConditionalIndClf(InductiveClassifier):
                     
 
     def p_values(self, example):
-        """Compute feature-conditional (Race) p-values for every possible class.
-        Inductive classifier assigns an assumed class value to the given example and compares its nonconformity
-        against all other instances in the calibration set.
-        Args:
-            example (Instance): Orange row instance.
-        Returns:
-            List of pairs (p-value, class)
-        """
         ex = np.array(example).flatten()
         race_ic = self.ics.get(ex[self.mf_idx], None)
         if race_ic is None:
