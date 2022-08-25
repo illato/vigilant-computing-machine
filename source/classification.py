@@ -45,7 +45,6 @@ class RaceConditionalInductiveClassifier(InductiveClassifier):
             List of pairs (p-value, class)
         """
         race_n = example[self.mf_idx]
-        classes = []
         ps = []
         temp = example.get_class()
         for yi, y in enumerate(self.domain.class_var.values):
