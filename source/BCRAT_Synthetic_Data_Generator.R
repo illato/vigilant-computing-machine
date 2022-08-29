@@ -16,15 +16,122 @@ setwd('C:/Users/Bob/CHPC/conformal_prediction/vigilant-computing-machine/')
 set.seed(42)
 
 
-Case_signalYN_function_original <- function(T1, T2, N_Biop, HypPlas, AgeMen, Age1st, N_Rels, Race){
+Case_signal_function_original <- function(T1, T2, N_Biop, HypPlas, AgeMen, Age1st, N_Rels, Race){
   return(c(0.3*T1+0.2*N_Biop+0.1*N_Rels+0.1*AgeMen+0.3*rnorm(20,3)))
 }
 
-calc_case_signalYN_varying_race <- function(T1, T2, N_Biop, HypPlas, AgeMen, Age1st, N_Rels, Race){
+Case_signal_function_original_no_noise <- function(T1, T2, N_Biop, HypPlas, AgeMen, Age1st, N_Rels, Race){
+  return(c(0.3*T1+0.2*N_Biop+0.1*N_Rels+0.1*AgeMen+0.3))# *rnorm(20,3)))
+}
+
+calc_case_signal_varying_race <- function(T1, T2, N_Biop, HypPlas, AgeMen, Age1st, N_Rels, Race){
   return(c(0.3*T1+0.2*N_Biop+0.1*N_Rels+0.1*AgeMen+0.3*rnorm(20,3)-(1/Race)))
 }
 
-generate_random_or_signal_data <- function(return_signal, Case_signalYN_function){
+calc_case_signal_race_weighted <- function(T1, T2, N_Biop, HypPlas, AgeMen, Age1st, N_Rels, Race){
+  return(c(0.3*T1+0.2*N_Biop+0.1*N_Rels+0.1*AgeMen+0.3*rnorm(20,3)+(1*Race)))
+}
+
+Case_signal_function_non_linear_race_risk_factor <- function(Race){
+  return(case_when(Race == 1 ~ -0.0025, 
+                   Race == 2 ~  0.00375, 
+                   Race == 3 ~ -0.00125, 
+                   Race == 4 ~  0.00125, 
+                   Race == 5 ~  0.00875, 
+                   Race == 6 ~  0.0175, 
+                   Race == 7 ~  0.005, 
+                   TRUE ~ 0))
+}
+
+# Alternatively, add Race-Relative Risk before 
+# Gaussian noise (as part of Case_signal_function).
+# Though, include_risk_columns does not currently accomodate
+#
+# Case_signal_function_rrr <- function(T1, T2, N_Biop, HypPlas, AgeMen, Age1st, N_Rels, Race){
+#   base_signal <- c(0.3*T1+0.2*N_Biop+0.1*N_Rels+0.1*AgeMen)
+#   race_relative_risk <- Case_signal_function_non_linear_race_risk_factor(Race)
+#   signal <- base_signal + (base_signal * race_relative_risk)
+#   signal_with_noise <- c(signal+0.3*rnorm(20,3))
+#   return(signal_with_noise)
+# }
+
+
+# Case_signal_function_race_unique <- Vectorize(function(T1, T2, N_Biop, HypPlas, AgeMen, Age1st, N_Rels, Race){
+#   return(case_when(Race == 1 ~ 1,
+#                    Race == 2 ~ c(0.3*T1+0.2*N_Biop+0.1*N_Rels+0.1*AgeMen+0.3*rnorm(20,3)),
+#                    Race == 3 ~ c(0.3*T1+0.2*N_Biop+0.1*N_Rels+0.1*AgeMen+0.3*rnorm(20,3)),
+#                    Race == 4 ~ c(0.3*T1+0.2*N_Biop+0.1*N_Rels+0.1*AgeMen+0.3*rnorm(20,3)),
+#                    Race == 5 ~ c(0.3*T1+0.2*N_Biop+0.1*N_Rels+0.1*AgeMen+0.3*rnorm(20,3)),
+#                    Race == 6 ~ c(0.3*T1+0.2*N_Biop+0.1*N_Rels+0.1*AgeMen+0.3*rnorm(20,3)),
+#                    Race == 7 ~ c(0.3*T1+0.2*N_Biop+0.1*N_Rels+0.1*AgeMen+0.3*rnorm(20,3)),
+#                    TRUE ~ 0))
+# })
+
+
+Case_signal_function_race_unique <- function(T1, T2, N_Biop, HypPlas, AgeMen, Age1st, N_Rels, Race){
+  case.signals <- c()
+  for(i in 1:length(T1)){
+    if(Race[i] == 1){
+      case.signals <- c(case.signals, 0.35*T1[i]+0.25*N_Biop[i]+0.15*N_Rels[i]+0.15*AgeMen[i])
+    }
+    else if(Race[i] == 2){
+      case.signals <- c(case.signals, 0.34*T1[i]+0.27*N_Biop[i]+0.13*N_Rels[i]+0.17*AgeMen[i])
+    }
+    else if(Race[i] == 3){
+      case.signals <- c(case.signals, 0.36*T1[i]+0.23*N_Biop[i]+0.17*N_Rels[i]+0.13*AgeMen[i])
+    }
+    else if(Race[i] == 4){
+      case.signals <- c(case.signals, 0.35*T1[i]+0.26*N_Biop[i]+0.16*N_Rels[i]+0.10*AgeMen[i])
+    }
+    else if(Race[i] == 5){
+      case.signals <- c(case.signals, 0.31*T1[i]+0.24*N_Biop[i]+0.14*N_Rels[i]+0.14*AgeMen[i])
+    }
+    else if(Race[i] == 6){
+      case.signals <- c(case.signals, 0.38*T1[i]+0.25*N_Biop[i]+0.18*N_Rels[i]+0.16*AgeMen[i])
+    }
+    else if(Race[i] == 7){
+      case.signals <- c(case.signals, 0.39*T1[i]+0.22*N_Biop[i]+0.18*N_Rels[i]+0.16*AgeMen[i])
+    }
+  }
+  case.signals <- c(case.signals+0.3*rnorm(20,3))
+  return(case.signals)
+}
+
+
+Case_signal_function_race_unique_inverted <- function(T1, T2, N_Biop, HypPlas, AgeMen, Age1st, N_Rels, Race){
+  case.signals <- c()
+  for(i in 1:length(T1)){
+    if(8-Race[i] == 1){
+      case.signals <- c(case.signals, 0.35*T1[i]+0.25*N_Biop[i]+0.15*N_Rels[i]+0.15*AgeMen[i])
+    }
+    else if(8-Race[i] == 2){
+      case.signals <- c(case.signals, 0.34*T1[i]+0.27*N_Biop[i]+0.13*N_Rels[i]+0.17*AgeMen[i])
+    }
+    else if(8-Race[i] == 3){
+      case.signals <- c(case.signals, 0.36*T1[i]+0.23*N_Biop[i]+0.17*N_Rels[i]+0.13*AgeMen[i])
+    }
+    else if(8-Race[i] == 4){
+      case.signals <- c(case.signals, 0.35*T1[i]+0.26*N_Biop[i]+0.16*N_Rels[i]+0.10*AgeMen[i])
+    }
+    else if(8-Race[i] == 5){
+      case.signals <- c(case.signals, 0.31*T1[i]+0.24*N_Biop[i]+0.14*N_Rels[i]+0.14*AgeMen[i])
+    }
+    else if(8-Race[i] == 6){
+      case.signals <- c(case.signals, 0.38*T1[i]+0.25*N_Biop[i]+0.18*N_Rels[i]+0.16*AgeMen[i])
+    }
+    else if(8-Race[i] == 7){
+      case.signals <- c(case.signals, 0.39*T1[i]+0.22*N_Biop[i]+0.18*N_Rels[i]+0.16*AgeMen[i])
+    }
+  }
+  case.signals <- c(case.signals+0.3*rnorm(20,3))
+  return(case.signals)
+}
+
+generate_random_or_signal_data <- function(return_signal, 
+                                           Case_signal_function, 
+                                           sample_size, 
+                                           race_risk_factor_function, 
+                                           include_risk_columns){
   if(missing(return_signal)){
     # R cannot return two data frames 
     # (hacky attempt to modify original code as little as possible)
@@ -32,21 +139,46 @@ generate_random_or_signal_data <- function(return_signal, Case_signalYN_function
     # Default to returning 'sim_Gail_signal'
     return_signal <- TRUE
   }
-  if(missing(Case_signalYN_function)){
+  if(missing(Case_signal_function)){
     # Allows modifying the function that calculates whether 
     # an individual develops breast cancer in their lifetime or not.
     #
     # Default to the original authors' function
-    Case_signalYN_function <- function(T1, T2, N_Biop, HypPlas, AgeMen, Age1st, N_Rels, Race){
+    Case_signal_function <- function(T1, T2, N_Biop, HypPlas, AgeMen, Age1st, N_Rels, Race){
       return(c(0.3*T1+0.2*N_Biop+0.1*N_Rels+0.1*AgeMen+0.3*rnorm(20,3)))
     }
   }
+  if(missing(race_risk_factor_function)){
+    # Allows defining a Race-Relative Risk (RRR) factor
+    # that will be multiplied by the overall risk
+    # then added to the overall risk
+    #
+    # Default to original authors' lack of RRR
+    race_risk_factor_function <- function(Race){
+      return(0*Race)
+    }
+  }
+  if(missing(include_risk_columns)){
+    # Allows including overall risk, RRR, and median risk
+    # as columns in output
+    #
+    # Default to original authors' lack of these columns
+    include_risk_columns <- FALSE
+  }
+  if(missing(sample_size)){
+    # Allows modifying the sample size
+    #
+    # Default to the original authors' value of 1,200
+    sample_size <- 1200
+  }
+  n <- sample_size
+    
   # re-set seed for reproducibility
   set.seed(42)
   
-  NumSubj <- 1200
+  NumSubj <- n
   
-  ID<-sample(1200, 1200, replace=F)
+  ID<-sample(n, n, replace=F)
   
   #age 
   T1 <- as.integer(rnorm(NumSubj, 52,5))
@@ -61,7 +193,7 @@ generate_random_or_signal_data <- function(return_signal, Case_signalYN_function
   # 'The Breast Cancer Risk Assessment Tool allows health professionals
   # to estimate a woman's risk of developing invasive breast cancer over 
   # the next 5 years and up to age 90 (lifetime risk).'
-  T2 <- c(rep(90, 1200))
+  T2 <- c(rep(90, n))
   
   # Why did the original author make the below
   # probability of having had 3 biopsies greater than the 
@@ -71,7 +203,7 @@ generate_random_or_signal_data <- function(return_signal, Case_signalYN_function
   # HypPlas is based on N_Biop, but beyond that it is not yet clear what was meant
   
   # Number of Biopsy 
-  N_Biop<- sample(c(0,1,2,3,4,5,6),size=1200, replace=TRUE, prob=c(0.8,0.1,0.02,0.07,0.005,0.004,0.001))#Need change in HypPlas Size
+  N_Biop<- sample(c(0,1,2,3,4,5,6),size=n, replace=TRUE, prob=c(0.8,0.1,0.02,0.07,0.005,0.004,0.001))#Need change in HypPlas Size
   table(N_Biop)
   count_Biop<-length(N_Biop[N_Biop!=0])
   count_Biop  #242
@@ -103,14 +235,14 @@ generate_random_or_signal_data <- function(return_signal, Case_signalYN_function
   # 3  13  70 146 225 246 167  71  23   4 232 
   
   #Number of Rekatives have breast cancer
-  N_Rels<- sample(c(0,1,2,3,4,5,6),size=1200, replace=TRUE, prob=c(0.6,0.2,0.1,0.08,0.01,0.005,0.005))
+  N_Rels<- sample(c(0,1,2,3,4,5,6),size=n, replace=TRUE, prob=c(0.6,0.2,0.1,0.08,0.01,0.005,0.005))
   table(N_Rels)
   # N_Rels
   # 0   1   2   3   4   5   6 
   # 710 230 134 102  13   5   6 
   
   #Race
-  Race <- sample(c(1:7),size=1200, replace=TRUE, prob=c(0.5,0.2,0.2,0.08,0.01,0.005,0.005))
+  Race <- sample(c(1:7),size=n, replace=TRUE, prob=c(0.5,0.2,0.2,0.08,0.01,0.005,0.005))
   table(Race)
   # Race
   # 1   2   3   4   5   6   7 
@@ -120,16 +252,25 @@ generate_random_or_signal_data <- function(return_signal, Case_signalYN_function
   # A: BCRAT website notes - This tool cannot accurately estimate breast cancer risk for: Women carrying a breast-cancer-producing mutation in BRCA1 or BRCA2; Women with a previous history of invasive or in situ breast cancer; Women in certain other subgroups
   # source: 'https://bcrisktool.cancer.gov/' (15 July 2022)
   #
-  #BRCA1 <- sample(c(0,1,"NA"),size=1200, replace=TRUE, prob=c(0.2,0.1,0.7))
-  #BRCA2 <- sample(c(0,1,"NA"),size=1200, replace=TRUE, prob=c(0.2,0.05,0.75))
+  #BRCA1 <- sample(c(0,1,"NA"),size=n, replace=TRUE, prob=c(0.2,0.1,0.7))
+  #BRCA2 <- sample(c(0,1,"NA"),size=n, replace=TRUE, prob=c(0.2,0.05,0.75))
   #Weight <- as.integer(rnorm(NumSubj, 80,10))
   #Hight <- as.integer(rnorm(NumSubj, 173,10))
   
   # having cancer
-  Case_Random<-sample(c(0,1),size=1200, replace=TRUE, prob=c(0.5,0.5))
+  Case_Random<-sample(c(0,1),size=n, replace=TRUE, prob=c(0.5,0.5))
   # Case_signal<-c(0.3*T1+0.2*N_Biop+0.1*N_Rels+0.1*AgeMen+0.3*rnorm(20,3)) # original
-  Case_signal <- Case_signalYN_function(T1, T2, N_Biop, HypPlas, AgeMen, Age1st, N_Rels, Race)
+  Case_signal <- Case_signal_function(T1, T2, N_Biop, HypPlas, AgeMen, Age1st, N_Rels, Race)
   print(median(Case_signal)) # 17.86993
+  
+  # consider difference between RRR being applied before/after 
+  # inclusion of Gaussian Noise 
+  # (rnorm(20,3) in original Case_signal_function)
+  race_relative_risk <- (Case_signal * race_risk_factor_function(Race)) 
+  
+  Case_signal <- Case_signal + race_relative_risk
+  print(median(Case_signal))
+  
   #Case_signalYN<-ifelse(Case_signal>17.86993, 1, 0) # originally hard-coded
   Case_signalYN<-ifelse(Case_signal>median(Case_signal), 1, 0)
   table(Case_Random)
@@ -145,7 +286,26 @@ generate_random_or_signal_data <- function(return_signal, Case_signalYN_function
   # Data (putting all components together)
   
   sim_Gail_Random<- cbind(ID,T1,T2,N_Biop,HypPlas,AgeMen,Age1st,N_Rels,Race,Case_Random)
-  sim_Gail_signal<- cbind(ID,T1,T2,N_Biop,HypPlas,AgeMen,Age1st,N_Rels,Race,Case_signalYN)
+  
+  if(include_risk_columns){
+    median_risk <- rep(median(Case_signal, length(Case_signal)))
+    sim_Gail_signal<- cbind(ID,T1,T2,N_Biop,HypPlas,AgeMen,Age1st,N_Rels,Race,Case_signalYN, 
+                            Case_signal, race_relative_risk, median_risk)
+    signal_column_names <- c(
+      "ID",
+      "T1","T2",
+      "N_Biop", "HypPlas", "AgeMen",
+      "Age1st", "N_Rels", "Race", "Case_signalYN", 
+      "Case_signal", "race_relative_risk", "median_risk")
+  }
+  else{
+    sim_Gail_signal<- cbind(ID,T1,T2,N_Biop,HypPlas,AgeMen,Age1st,N_Rels,Race,Case_signalYN)
+    signal_column_names <- c(
+      "ID",
+      "T1","T2",
+      "N_Biop", "HypPlas", "AgeMen",
+      "Age1st", "N_Rels", "Race", "Case_signalYN")
+  }
   
   #Assign the column names
   
@@ -158,11 +318,12 @@ generate_random_or_signal_data <- function(return_signal, Case_signalYN_function
   summary(sim_Gail_Random)
   str(sim_Gail_Random)
   
-  colnames(sim_Gail_signal) <- c(
-    "ID",
-    "T1","T2",
-    "N_Biop", "HypPlas", "AgeMen",
-    "Age1st", "N_Rels", "Race", "Case_signalYN")
+  colnames(sim_Gail_signal) <- signal_column_names
+  # colnames(sim_Gail_signal) <- c(
+  #   "ID",
+  #   "T1","T2",
+  #   "N_Biop", "HypPlas", "AgeMen",
+  #   "Age1st", "N_Rels", "Race", "Case_signalYN")
   sim_Gail_signal<- data.frame(sim_Gail_signal)
   summary(sim_Gail_signal)
   str(sim_Gail_signal)
@@ -182,7 +343,7 @@ generate_missing_or_imputed_data <- function(return_missing, sim_Gail_signal){
   if(missing(sim_Gail_signal)){
     # if 'sim_Gail_signal' is not provided, generate the original authors'
     sim_Gail_signal <- generate_random_or_signal_data(return_signal = TRUE, 
-                                                      Case_signalYN_function = Case_signalYN_function_original)
+                                                      Case_signal_function = Case_signal_function_original)
   }
   
   # add random missing in Simulated data with signal
@@ -281,19 +442,25 @@ generate_missing_or_imputed_data <- function(return_missing, sim_Gail_signal){
   ifelse(return_missing, return(sim_Gail_signal_add_NA), return(imputed1))
 }
 
+
 random_original <- generate_random_or_signal_data(return_signal = FALSE, 
-                                                  Case_signalYN_function = Case_signalYN_function_original)
+                                                  Case_signal_function = Case_signal_function_original)
 signal_original <- generate_random_or_signal_data(return_signal = TRUE, 
-                                                  Case_signalYN_function = Case_signalYN_function_original)
+                                                  Case_signal_function = Case_signal_function_original)
 missing_original <- generate_missing_or_imputed_data(return_missing = TRUE, 
                                                      sim_Gail_signal = signal_original)
 imputed_original <- generate_missing_or_imputed_data(return_missing = FALSE, 
                                                      sim_Gail_signal = signal_original)
 
+signal_original_10x <- generate_random_or_signal_data(return_signal = TRUE, 
+                                                      Case_signal_function = Case_signal_function_original, 
+                                                      sample_size = 12000)
+
+
 random_modified <- generate_random_or_signal_data(return_signal = FALSE, 
-                                                  Case_signalYN_function = calc_case_signalYN_varying_race)
+                                                  Case_signal_function = calc_case_signal_varying_race)
 signal_modified <- generate_random_or_signal_data(return_signal = TRUE, 
-                                                  Case_signalYN_function = calc_case_signalYN_varying_race)
+                                                  Case_signal_function = calc_case_signal_varying_race)
 missing_modified <- generate_missing_or_imputed_data(return_missing = TRUE, 
                                                      sim_Gail_signal = signal_modified)
 imputed_modified <- generate_missing_or_imputed_data(return_missing = FALSE, 
@@ -317,6 +484,10 @@ write.csv(random_original,
 
 write.csv(signal_original, 
           file = './ML_BCP/data/synthetic/signal.csv', 
+          row.names = FALSE)
+
+write.csv(signal_original_10x, 
+          file = './ML_BCP/data/synthetic/signal_10x.csv', 
           row.names = FALSE)
 
 write.csv(missing_original, 
@@ -344,14 +515,10 @@ write.csv(imputed_modified,
           row.names = FALSE)
 
 
-calc_case_signalYN_race_weighted <- function(T1, T2, N_Biop, HypPlas, AgeMen, Age1st, N_Rels, Race){
-  return(c(0.3*T1+0.2*N_Biop+0.1*N_Rels+0.1*AgeMen+0.3*rnorm(20,3)+(1*Race)))
-}
-
 random_race_weighted <- generate_random_or_signal_data(return_signal = FALSE, 
-                                                       Case_signalYN_function = calc_case_signalYN_race_weighted)
+                                                       Case_signal_function = calc_case_signal_race_weighted)
 signal_race_weighted <- generate_random_or_signal_data(return_signal = TRUE, 
-                                                       Case_signalYN_function = calc_case_signalYN_race_weighted)
+                                                       Case_signal_function = calc_case_signal_race_weighted)
 missing_race_weighted <- generate_missing_or_imputed_data(return_missing = TRUE, 
                                                           sim_Gail_signal = signal_race_weighted)
 imputed_race_weighted <- generate_missing_or_imputed_data(return_missing = FALSE, 
@@ -389,3 +556,75 @@ write.csv(imputed_race_weighted,
           file = './ML_BCP/data/synthetic/imputed_race_weighted.csv', 
           row.names = FALSE)
 
+
+signal_non_linear_rrr <- generate_random_or_signal_data(race_risk_factor_function = Case_signal_function_non_linear_race_risk_factor, 
+                                                        include_risk_columns = TRUE)
+
+signal_non_linear_rrr_10x <- generate_random_or_signal_data(sample_size = 12000,
+                                                            race_risk_factor_function = Case_signal_function_non_linear_race_risk_factor, 
+                                                            include_risk_columns = TRUE)
+
+
+boxplot(Case_signalYN ~ Race, data = signal_non_linear_rrr)
+boxplot(Case_signalYN ~ Race, data = signal_non_linear_rrr_10x)
+
+write.csv(signal_non_linear_rrr, 
+          file = './ML_BCP/data/synthetic/signal_non_linear_rrr.csv', 
+          row.names = FALSE)
+
+write.csv(signal_non_linear_rrr_10x, 
+          file = './ML_BCP/data/synthetic/signal_non_linear_rrr_10x.csv', 
+          row.names = FALSE)
+
+signal_race_unique <- generate_random_or_signal_data(Case_signal_function = Case_signal_function_race_unique)
+
+signal_race_unique_10x <- generate_random_or_signal_data(Case_signal_function = Case_signal_function_race_unique,
+                                                         sample_size = 12000)
+
+boxplot(Case_signalYN ~ Race, data = signal_race_unique)
+boxplot(Case_signalYN ~ Race, data = signal_race_unique_10x)
+
+write.csv(signal_race_unique, 
+          file = './ML_BCP/data/synthetic/signal_race_unique.csv', 
+          row.names = FALSE)
+
+write.csv(signal_race_unique_10x, 
+          file = './ML_BCP/data/synthetic/signal_race_unique_10x.csv', 
+          row.names = FALSE)
+
+signal_race_unique_inverted <- generate_random_or_signal_data(Case_signal_function = Case_signal_function_race_unique_inverted)
+
+signal_race_unique_inverted_10x <- generate_random_or_signal_data(Case_signal_function = Case_signal_function_race_unique_inverted,
+                                                                  sample_size = 12000)
+
+
+boxplot(Case_signalYN ~ Race, data = signal_race_unique_inverted)
+boxplot(Case_signalYN ~ Race, data = signal_race_unique_inverted_10x)
+
+write.csv(signal_race_unique_inverted, 
+          file = './ML_BCP/data/synthetic/signal_race_unique_inverted.csv', 
+          row.names = FALSE)
+
+write.csv(signal_race_unique_inverted_10x, 
+          file = './ML_BCP/data/synthetic/signal_race_unique_inverted_10x.csv', 
+          row.names = FALSE)
+
+
+signal_original_no_noise <- generate_random_or_signal_data(return_signal = TRUE, 
+                                                           Case_signal_function = Case_signal_function_original_no_noise)
+
+signal_original_no_noise_10x <- generate_random_or_signal_data(return_signal = TRUE, 
+                                                               Case_signal_function = Case_signal_function_original_no_noise,
+                                                               sample_size = 12000)
+
+boxplot(Case_signalYN ~ Race, data = signal_original)
+boxplot(Case_signalYN ~ Race, data = signal_original_no_noise)
+boxplot(Case_signalYN ~ Race, data = signal_original_no_noise_10x)
+
+write.csv(signal_original_no_noise, 
+          file = './ML_BCP/data/synthetic/signal_no_noise.csv', 
+          row.names = FALSE)
+
+write.csv(signal_original_no_noise_10x, 
+          file = './ML_BCP/data/synthetic/signal_no_noise_10x.csv', 
+          row.names = FALSE)

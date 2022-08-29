@@ -1,0 +1,2 @@
+confidence,credibility,verdict,empty,single,single_correct,multiple,data,mondrian,classifier,model,conformal_predictor,nonconformity,method,instance_of_model,normalizer
+0,0.8678048845624697,0.9245446265938067,0.9272727272727272,0.0,0.15,0.07727272727272727,0.85,Race-Rel. Risk - 10:1 - healthy:cancer,True,,,InductiveClassifier (KNNFraction (k=5)),KNNFraction (k=5),knn_fraction_1200_rrr_imbalanced_mondrian,InductiveClassifier (KNNFraction (k=5)),"{'zero_based': True, 'norm_type': Normalize.NormalizeBySD, 'transform_class': False, 'center': True, 'normalize_datetime': False}"
