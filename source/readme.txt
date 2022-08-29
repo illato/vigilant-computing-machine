@@ -1,3 +1,5 @@
+Note: the following is not necessary to execute notebooks and only applies to code contained within `BrCaClassifier.py`
+
 How-To use R in Python:
 
 # Non-Admin install of R will need R home added to (user) PATH 
