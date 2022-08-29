@@ -20,6 +20,10 @@ Case_signal_function_original <- function(T1, T2, N_Biop, HypPlas, AgeMen, Age1s
   return(c(0.3*T1+0.2*N_Biop+0.1*N_Rels+0.1*AgeMen+0.3*rnorm(20,3)))
 }
 
+Case_signal_function_original_no_noise <- function(T1, T2, N_Biop, HypPlas, AgeMen, Age1st, N_Rels, Race){
+  return(c(0.3*T1+0.2*N_Biop+0.1*N_Rels+0.1*AgeMen+0.3))# *rnorm(20,3)))
+}
+
 calc_case_signal_varying_race <- function(T1, T2, N_Biop, HypPlas, AgeMen, Age1st, N_Rels, Race){
   return(c(0.3*T1+0.2*N_Biop+0.1*N_Rels+0.1*AgeMen+0.3*rnorm(20,3)-(1/Race)))
 }
@@ -91,8 +95,36 @@ Case_signal_function_race_unique <- function(T1, T2, N_Biop, HypPlas, AgeMen, Ag
   }
   case.signals <- c(case.signals+0.3*rnorm(20,3))
   return(case.signals)
+}
 
-  # return(c(0.3*T1+0.2*N_Biop+0.1*N_Rels+0.1*AgeMen+0.3*rnorm(20,3)))
+
+Case_signal_function_race_unique_inverted <- function(T1, T2, N_Biop, HypPlas, AgeMen, Age1st, N_Rels, Race){
+  case.signals <- c()
+  for(i in 1:length(T1)){
+    if(8-Race[i] == 1){
+      case.signals <- c(case.signals, 0.35*T1[i]+0.25*N_Biop[i]+0.15*N_Rels[i]+0.15*AgeMen[i])
+    }
+    else if(8-Race[i] == 2){
+      case.signals <- c(case.signals, 0.34*T1[i]+0.27*N_Biop[i]+0.13*N_Rels[i]+0.17*AgeMen[i])
+    }
+    else if(8-Race[i] == 3){
+      case.signals <- c(case.signals, 0.36*T1[i]+0.23*N_Biop[i]+0.17*N_Rels[i]+0.13*AgeMen[i])
+    }
+    else if(8-Race[i] == 4){
+      case.signals <- c(case.signals, 0.35*T1[i]+0.26*N_Biop[i]+0.16*N_Rels[i]+0.10*AgeMen[i])
+    }
+    else if(8-Race[i] == 5){
+      case.signals <- c(case.signals, 0.31*T1[i]+0.24*N_Biop[i]+0.14*N_Rels[i]+0.14*AgeMen[i])
+    }
+    else if(8-Race[i] == 6){
+      case.signals <- c(case.signals, 0.38*T1[i]+0.25*N_Biop[i]+0.18*N_Rels[i]+0.16*AgeMen[i])
+    }
+    else if(8-Race[i] == 7){
+      case.signals <- c(case.signals, 0.39*T1[i]+0.22*N_Biop[i]+0.18*N_Rels[i]+0.16*AgeMen[i])
+    }
+  }
+  case.signals <- c(case.signals+0.3*rnorm(20,3))
+  return(case.signals)
 }
 
 generate_random_or_signal_data <- function(return_signal, 
@@ -410,6 +442,7 @@ generate_missing_or_imputed_data <- function(return_missing, sim_Gail_signal){
   ifelse(return_missing, return(sim_Gail_signal_add_NA), return(imputed1))
 }
 
+
 random_original <- generate_random_or_signal_data(return_signal = FALSE, 
                                                   Case_signal_function = Case_signal_function_original)
 signal_original <- generate_random_or_signal_data(return_signal = TRUE, 
@@ -422,6 +455,7 @@ imputed_original <- generate_missing_or_imputed_data(return_missing = FALSE,
 signal_original_10x <- generate_random_or_signal_data(return_signal = TRUE, 
                                                       Case_signal_function = Case_signal_function_original, 
                                                       sample_size = 12000)
+
 
 random_modified <- generate_random_or_signal_data(return_signal = FALSE, 
                                                   Case_signal_function = calc_case_signal_varying_race)
@@ -556,4 +590,41 @@ write.csv(signal_race_unique,
 
 write.csv(signal_race_unique_10x, 
           file = './ML_BCP/data/synthetic/signal_race_unique_10x.csv', 
+          row.names = FALSE)
+
+signal_race_unique_inverted <- generate_random_or_signal_data(Case_signal_function = Case_signal_function_race_unique_inverted)
+
+signal_race_unique_inverted_10x <- generate_random_or_signal_data(Case_signal_function = Case_signal_function_race_unique_inverted,
+                                                                  sample_size = 12000)
+
+
+boxplot(Case_signalYN ~ Race, data = signal_race_unique_inverted)
+boxplot(Case_signalYN ~ Race, data = signal_race_unique_inverted_10x)
+
+write.csv(signal_race_unique_inverted, 
+          file = './ML_BCP/data/synthetic/signal_race_unique_inverted.csv', 
+          row.names = FALSE)
+
+write.csv(signal_race_unique_inverted_10x, 
+          file = './ML_BCP/data/synthetic/signal_race_unique_inverted_10x.csv', 
+          row.names = FALSE)
+
+
+signal_original_no_noise <- generate_random_or_signal_data(return_signal = TRUE, 
+                                                           Case_signal_function = Case_signal_function_original_no_noise)
+
+signal_original_no_noise_10x <- generate_random_or_signal_data(return_signal = TRUE, 
+                                                               Case_signal_function = Case_signal_function_original_no_noise,
+                                                               sample_size = 12000)
+
+boxplot(Case_signalYN ~ Race, data = signal_original)
+boxplot(Case_signalYN ~ Race, data = signal_original_no_noise)
+boxplot(Case_signalYN ~ Race, data = signal_original_no_noise_10x)
+
+write.csv(signal_original_no_noise, 
+          file = './ML_BCP/data/synthetic/signal_no_noise.csv', 
+          row.names = FALSE)
+
+write.csv(signal_original_no_noise_10x, 
+          file = './ML_BCP/data/synthetic/signal_no_noise_10x.csv', 
           row.names = FALSE)
